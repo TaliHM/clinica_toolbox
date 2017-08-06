@@ -1,4 +1,4 @@
-function [AmountAct,AmountActInd,AmountStandardInd,SumAct,SumActInd,SumStandardInd] = LIallThreshClinic(subInfo, LI_list)
+function [AmountAct,AmountActInd,AmountStandardInd,SumAct,SumActInd,SumStandardInd] = LIallThreshClinic(subInfo, LI_list, createOccMask, createMidSagMask, reverseOccMask, reverseMidSagMask)
 %%% this functions purpose is to automatically evaluate the lateralization
 %%% by merging two activations and checking when they coexist. the only
 %%% parameter it needs as an input is the RelativeThresh, which is the
@@ -16,10 +16,10 @@ disp( [ 'Lateralization processing, version: ' FileVersion ] );
 
 %------------------------ Setting initial parameters %--------------------------
 subPath = subInfo.path;
-createOccMask = subInfo.parameters.createOccMask;
-handedness = subInfo.parameters.handedness; % 0 = right handed, 1= left handed
-reverseMask = subInfo.parameters.reverseMask;
-reverseLR = subInfo.parameters.reverseLR;
+
+% 1 - right; 0 = 0; THM changed it from previous versions!! (it was
+% backwards, that is: USED TO BE 0 = right handed, 1= left handed)
+handedness = subInfo.parameters.rightHanded;
 minDist = subInfo.parameters.minDist;
 
 occipitalDots = 'OccMask2points'; % mask file of cerebellum and occipital
@@ -31,10 +31,10 @@ analysisPath = fullfile( subPath, 'Analysis' );
 funcPath = fullfile( analysisPath, 'func' );
 LIpath = fullfile(analysisPath, 'LI');
 
-isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
-if ~isempty(isEEG)
-    eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
-end
+% isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+% if ~isempty(isEEG)
+%     eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
+% end
 
 if ~exist(LIpath, 'dir')
     mkdir(LIpath);
@@ -111,100 +111,104 @@ thetasLeft = [-0.8992;  4.3293];
 betasRight = [-3.7579;   -2.7491;   -1.2468;   -0.5418;   -0.8468;   -3.8891];
 thetasRight = [0.1030; 5.1656];
 
+% 1 - right; 0 = left
 if handedness
-    LateralityProb = [60,20,20]; % probability in the general pubplic
-    weights = weightsLeft;
-    betas = betasLeft;
-    thetas = thetasLeft;
-else
     LateralityProb = [90,5,5];% probability in the general public
     weights = weightsRight;
     betas = betasRight;
     thetas = thetasRight;
+else
+    LateralityProb = [60,20,20]; % probability in the general pubplic
+    weights = weightsLeft;
+    betas = betasLeft;
+    thetas = thetasLeft;
 end
 %-------------------------------------------------------------------------------
 
 %%%%%% load the midsagital mask and claculate the mid sagital plane %%%%%%
 if createOccMask
+    
     fprintf('Loading the midsagital mask and claculating the mid sagital plane..\n');
     
     % check if the relevant MidSag3points mask file exist
     if exist(fullfile(LIpath, [midSagitalNii '.img'] ), 'file')
         nii_midSagital = load_nii( fullfile(LIpath, midSagitalNii));
-        [rightImg,leftImg,midImg,paramsMidSag] = CalcMidSagPlane(nii_midSagital.img, minDist, reverseLR);
-        
-        % saving a left side mask
-        leftMask = nii_midSagital;
-        leftMask.img = int16(leftImg);
-        save_nii(leftMask, [ LIpath, '\LeftMask.hdr']);
-        
-        % saving a right side mask
-        rightMask = nii_midSagital;
-        rightMask.img = int16(rightImg);
-        save_nii(rightMask, [ LIpath, '\RightMask.hdr']);
-        
-        % saving a mid mask
-        midMask = nii_midSagital;
-        midMask.img = int16(midImg);
-        save_nii(midMask, [ LIpath, '\midMask.hdr']);
-        
-        % ask the user to continue..
-        % open msg dlg and ask the user if we can continue
-        % Construct a questdlg with two options
-        str = sprintf('please check if the mid sagital plane is good and create the 2 dots for occipital mask (press continue when finished)');
-        choice = questdlg(str, ...
-            'Lateralization processing paused (please check markings)', ...
-            'Continue','Abort', 'Continue');
-        % Handle response
-        switch choice
-            case 'Abort'
-                disp('Aborting!')
-                return
-            case 'Continue'
-                disp('Ok, let''s Continue!')
-        end
-        
-        %%%%%% load the cerebellum and ocipital mask %%%%%%
-        clacMask_flag = 1;
-        if exist(fullfile(LIpath,  'CerebellumAndOccipitalMask.img'), 'file')
+        [rightImg,leftImg,midImg,paramsMidSag] = CalcMidSagPlane(nii_midSagital.img, minDist, reverseMidSagMask);
+        if createMidSagMask
+            % saving a left side mask
+            leftMask = nii_midSagital;
+            leftMask.img = int16(leftImg);
+            save_nii(leftMask, [ LIpath, '\LeftMask.hdr']);
             
-            str = sprintf('Are you sure you want to recalculate the Occipital Cerebellum Mask?');
+            % saving a right side mask
+            rightMask = nii_midSagital;
+            rightMask.img = int16(rightImg);
+            save_nii(rightMask, [ LIpath, '\RightMask.hdr']);
+            
+            % saving a mid mask
+            midMask = nii_midSagital;
+            midMask.img = int16(midImg);
+            save_nii(midMask, [ LIpath, '\midMask.hdr']);
+            
+            % ask the user to continue..
+            % open msg dlg and ask the user if we can continue
+            % Construct a questdlg with two options
+            str = sprintf('please check if the mid sagital plane is good and create the 2 dots for occipital mask (press continue when finished)');
             choice = questdlg(str, ...
-                'Lateralization processing paused', ...
-                'Yes','No', 'Yes');
+                'Lateralization processing paused (please check markings)', ...
+                'Continue','Abort', 'Continue');
             % Handle response
             switch choice
-                case 'No'
-                    disp('Skip recalculation of the Occipital Cerebellum Mask!')
-                    clacMask_flag = 0;
-                case 'Yes'
+                case 'Abort'
+                    disp('Aborting!')
+                    return
+                case 'Continue'
                     disp('Ok, let''s Continue!')
             end
+            
         end
+    end
+    
+    %%%%%% load the cerebellum and ocipital mask %%%%%%
+    clacMask_flag = 1;
+    if exist(fullfile(LIpath,  'CerebellumAndOccipitalMask.img'), 'file')
         
-        % check if the relevant OccipitalDots mask file exist
-        if clacMask_flag
-            if exist(fullfile(LIpath, [occipitalDots '.img'] ), 'file')
-                nii_occDots = load_nii( fullfile(LIpath, occipitalDots));
-                occDotsImg = nii_occDots.img;
-                [occipitalImg, params] = CalcOccipitalMask(occDotsImg, paramsMidSag, reverseMask);
-                
-                occMask = nii_occDots;
-                occMask.img = int16(occipitalImg);
-                save_nii(occMask, [ LIpath, '\CerebellumAndOccipitalMask.hdr']);
-                
-                str = sprintf('please check if the occipital and cerebellum mask is good.\nIf not, please correct it manually');
-                choice = questdlg(str, ...
-                    'Lateralization processing paused (please check markings)', ...
-                    'Continue','Abort', 'Continue');
-                % Handle response
-                switch choice
-                    case 'Abort'
-                        disp('Aborting!')
-                        return
-                    case 'Continue'
-                        disp('Ok, let''s Continue!')
-                end
+        str = sprintf('Are you sure you want to recalculate the Occipital Cerebellum Mask?');
+        choice = questdlg(str, ...
+            'Lateralization processing paused', ...
+            'Yes','No', 'Yes');
+        % Handle response
+        switch choice
+            case 'No'
+                disp('Skip recalculation of the Occipital Cerebellum Mask!')
+                clacMask_flag = 0;
+            case 'Yes'
+                disp('Ok, let''s Continue!')
+        end
+    end
+    
+    % check if the relevant OccipitalDots mask file exist
+    if clacMask_flag
+        if exist(fullfile(LIpath, [occipitalDots '.img'] ), 'file')
+            nii_occDots = load_nii( fullfile(LIpath, occipitalDots));
+            occDotsImg = nii_occDots.img;
+            [occipitalImg, params] = CalcOccipitalMask(occDotsImg, paramsMidSag, reverseOccMask);
+            
+            occMask = nii_occDots;
+            occMask.img = int16(occipitalImg);
+            save_nii(occMask, [ LIpath, '\CerebellumAndOccipitalMask.hdr']);
+            
+            str = sprintf('please check if the occipital and cerebellum mask is good.\nIf not, please correct it manually');
+            choice = questdlg(str, ...
+                'Lateralization processing paused (please check markings)', ...
+                'Continue','Abort', 'Continue');
+            % Handle response
+            switch choice
+                case 'Abort'
+                    disp('Aborting!')
+                    return
+                case 'Continue'
+                    disp('Ok, let''s Continue!')
             end
         end
     end
@@ -217,13 +221,13 @@ for l = 1:numel(LI_list)
     curFiles = LI_list{l};
     splitFiles = strsplit(curFiles, '+ ');
     
-    if ~isempty(isEEG)
-        series1 = char(deblank(splitFiles{1}));
-        series2 = char(deblank(splitFiles{2}));
-    else
-        series1 = char(deblank(regexp(splitFiles{1}, '[^(?<=Se_\d)]\w*[^(*rep)]', 'match')));
-        series2 = char(deblank(regexp(splitFiles{2}, '[^(?<=Se_\d)]\w*[^(*rep)]', 'match')));
-    end
+    %     if ~isempty(isEEG)
+    %         series1 = char(deblank(splitFiles{1}));
+    %         series2 = char(deblank(splitFiles{2}));
+    %     else
+    series1 = char(deblank(regexp(splitFiles{1}, '[^(?<=Se_\d)]\w*[^(*rep)]', 'match')));
+    series2 = char(deblank(regexp(splitFiles{2}, '[^(?<=Se_\d)]\w*[^(*rep)]', 'match')));
+    %     end
     
     files_list = {series1; series2};
     
@@ -239,12 +243,12 @@ for l = 1:numel(LI_list)
         for k = 1:numel(files_list)
             curSeries = files_list{k};
             
-            if ~isempty(isEEG)
-                removeLagStr = regexp(curSeries, 'Lag_-?\d+', 'match');
-                curContrast = strrep(curSeries, [char(removeLagStr) '_'], '');
-            else
-                curContrast = regexp(curSeries, 'spmT_\d\w*', 'match');
-            end
+            %             if ~isempty(isEEG)
+            %                 removeLagStr = regexp(curSeries, 'Lag_-?\d+', 'match');
+            %                 curContrast = strrep(curSeries, [char(removeLagStr) '_'], '');
+            %             else
+            curContrast = regexp(curSeries, 'spmT_\d\w*', 'match');
+            %             end
             
             file = regexp(char(curSeries), 'rest', 'match');
             
@@ -314,70 +318,70 @@ for l = 1:numel(LI_list)
                 
                 if ~isempty(idx)
                     for n = 1:numel(idx)
-                        if strcmpi(dirs{idx(n)}, 'eeg_lags')
+                        %                         if strcmpi(dirs{idx(n)}, 'eeg_lags')
+                        %
+                        %                             eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
+                        %
+                        %                             sessionDirs = dir(eegLagsPath);
+                        %                             sessionDirs = {sessionDirs.name};
+                        %                             sessionDirs = sessionDirs(3:end);
+                        %
+                        %                             for s = 1:size(sessionDirs, 2)
+                        %                                 curSess = sessionDirs{s};
+                        %
+                        %                                 lagDirs = dir(fullfile(eegLagsPath, curSess));
+                        %                                 lagDirs = {lagDirs.name};
+                        %                                 lagDirs = lagDirs(3:end);
+                        %
+                        %                                 for lg = 1:size(lagDirs, 2)
+                        %                                     curLag = lagDirs{lg};
+                        %
+                        %                                     resultsPath = fullfile(eegLagsPath, curSess, curLag, 'spmT_files');
+                        %                                     spmFiles = dir(resultsPath);
+                        %                                     spmFiles = {spmFiles.name};
+                        %                                     spmFiles = spmFiles(3:end);
+                        %
+                        %                                     if ~isempty(spmFiles)
+                        %
+                        %                                         % find if the file exists
+                        %                                         if isequal(char(removeLagStr), curLag) && ...
+                        %                                             exist(fullfile(resultsPath, [ char(curContrast) '.nii']), 'file')
+                        %                                             foundStr = 1;
+                        %
+                        %                                             % copying the img and hdr of the activation file into the
+                        %                                             % superimpose folder in the viewer (they were already
+                        %                                             % coregistered in previous preprocessing)
+                        %                                             % copying to the viewer folder a copy of the original fmri file (copy file)
+                        %                                             fmriFiles = fullfile( resultsPath, [ char(curContrast)  '.nii'] );
+                        %                                             destination = fullfile(viewerFilesPath, [ curLag '_' char(curContrast)  '.nii'] );
+                        %                                             fprintf('Found: %s\n', fmriFiles);
+                        %                                             copyfile( fmriFiles, destination );
+                        %                                             break
+                        %                                         end
+                        %                                     end
+                        %                                 end
+                        %                                 if foundStr
+                        %                                     break
+                        %                                 end
+                        %                             end
+                        %                         else
+                        curDir = fullfile(analysisPath, dirs{idx(n)});
+                        % now lets set the fmri files..
+                        % find if the file exists
+                        if exist(fullfile(curDir, [ char(curContrast) '.nii']), 'file')
+                            foundStr = 1;
                             
-                            eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
-                            
-                            sessionDirs = dir(eegLagsPath);
-                            sessionDirs = {sessionDirs.name};
-                            sessionDirs = sessionDirs(3:end);
-                            
-                            for s = 1:size(sessionDirs, 2)
-                                curSess = sessionDirs{s};
-                                
-                                lagDirs = dir(fullfile(eegLagsPath, curSess));
-                                lagDirs = {lagDirs.name};
-                                lagDirs = lagDirs(3:end);
-                                
-                                for lg = 1:size(lagDirs, 2)
-                                    curLag = lagDirs{lg};
-                                    
-                                    resultsPath = fullfile(eegLagsPath, curSess, curLag, 'spmT_files');
-                                    spmFiles = dir(resultsPath);
-                                    spmFiles = {spmFiles.name};
-                                    spmFiles = spmFiles(3:end);
-                                    
-                                    if ~isempty(spmFiles)
-                                        
-                                        % find if the file exists
-                                        if isequal(char(removeLagStr), curLag) && ... 
-                                            exist(fullfile(resultsPath, [ char(curContrast) '.nii']), 'file') 
-                                            foundStr = 1;
-                                            
-                                            % copying the img and hdr of the activation file into the
-                                            % superimpose folder in the viewer (they were already
-                                            % coregistered in previous preprocessing)
-                                            % copying to the viewer folder a copy of the original fmri file (copy file)
-                                            fmriFiles = fullfile( resultsPath, [ char(curContrast)  '.nii'] );
-                                            destination = fullfile(viewerFilesPath, [ curLag '_' char(curContrast)  '.nii'] );
-                                            fprintf('Found: %s\n', fmriFiles);
-                                            copyfile( fmriFiles, destination );
-                                            break
-                                        end
-                                    end
-                                end
-                                if foundStr
-                                    break
-                                end
-                            end
-                        else
-                            curDir = fullfile(analysisPath, dirs{idx(n)});
-                            % now lets set the fmri files..
-                            % find if the file exists
-                            if exist(fullfile(curDir, [ char(curContrast) '.nii']), 'file')
-                                foundStr = 1;
-                                
-                                % copying the img and hdr of the activation file into the
-                                % superimpose folder in the viewer (they were already
-                                % coregistered in previous preprocessing)
-                                % copying to the viewer folder a copy of the original fmri file (copy file)
-                                fmriFiles = fullfile( curDir, [  char(curContrast)  '.*'] );
-                                destination = fullfile(viewerFilesPath, [ curLag '_' char(curContrast)  '.*'] );
-                                fprintf('Found: %s\n', fmriFiles);
-                                copyfile( fmriFiles, destination );
-                                break
-                            end
+                            % copying the img and hdr of the activation file into the
+                            % superimpose folder in the viewer (they were already
+                            % coregistered in previous preprocessing)
+                            % copying to the viewer folder a copy of the original fmri file (copy file)
+                            fmriFiles = fullfile( curDir, [  char(curContrast)  '.*'] );
+                            destination = fullfile(viewerFilesPath, [char(curContrast)  '.*'] );
+                            fprintf('Found: %s\n', fmriFiles);
+                            copyfile( fmriFiles, destination );
+                            break
                         end
+                        %                         end
                         if foundStr
                             break
                         end

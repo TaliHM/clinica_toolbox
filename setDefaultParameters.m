@@ -17,36 +17,33 @@ subInfo.parameters.maxTranslation = 3;
 subInfo.parameters.maxRotation = 0.5;
 subInfo.parameters.acquisitionOrder = 0; % 0 - top-down; 1 - bottom-up
 
-% smooth size is different between eeg and fMRI
-subInfo.parameters.smoothSize = 4;
-isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
-if ~isempty(isEEG)
-    subInfo.parameters.smoothSize = 6;
-end
-
-% lag is also different between eeg a fmri
-subInfo.parameters.lag = 0;
-isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
-if ~isempty(isEEG)
-    subInfo.parameters.lag = [1, 0, -1, -2, -3, -4, -5 ];
-end
-
-% how many volumes to skip at the beggining
-% if its the old magnet (GE) than we need to take off the first 6 volumes.
-% otherwise - only 3 volumes to be skipped.
-% eeg - 0 skipped
-scannerName = subInfo.dcmInfo_org.Manufacturer;
-if strfind(scannerName, 'GE')
-    subInfo.parameters.nFirstVolumesToSkip = 6;
-end
-
-isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
-if ~isempty(isEEG)
-    subInfo.parameters.nFirstVolumesToSkip = 0;
-else
-    subInfo.parameters.nFirstVolumesToSkip = 3;
-end
-
+% % % smooth size is different between eeg and fMRI
+% % subInfo.parameters.smoothSize_fmri = 4;
+% % isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+% % if ~isempty(isEEG)
+% %     subInfo.parameters.smoothSize_eeg = 6;
+% % end
+% % 
+% % % lag is also different between eeg a fmri
+% % subInfo.parameters.lag_fmri = 0;
+% % if ~isempty(isEEG)
+% %     subInfo.parameters.lag_eeg = [1, 0, -1, -2, -3, -4, -5 ];
+% % end
+% % 
+% % % how many volumes to skip at the beggining
+% % % if its the old magnet (GE) than we need to take off the first 6 volumes.
+% % % otherwise - only 3 volumes to be skipped.
+% % % eeg - 0 skipped
+% % scannerName = subInfo.dcmInfo_org.Manufacturer;
+% % if strfind(scannerName, 'GE')
+% %     subInfo.parameters.nFirstVolumesToSkip_fmri = 6;
+% %     subInfo.parameters.nFirstVolumesToSkip_eeg = 6;
+% % else
+% %     subInfo.parameters.nFirstVolumesToSkip_fmri = 3;
+% %     if ~isempty(isEEG)
+% %         subInfo.parameters.nFirstVolumesToSkip_eeg = 0;
+% %     end
+% % end
 %% parameters for superimpose
 subInfo.parameters.upDownFlip = 0; % if it's simens than we should not do up down flip.
 subInfo.parameters.infSupFlip = 0; % does a inferior-superior flip is needed?
@@ -54,10 +51,13 @@ subInfo.parameters.infSupFlip = 0; % does a inferior-superior flip is needed?
 % subInfo.parameters.createColorMatrix = 0; % DICOM with colors..!
 
 %% parameters for lateralization index
-subInfo.parameters.createOccMask = 1;
-subInfo.parameters.handedness = 0;% 0 = right handed, 1= left handed
-subInfo.parameters.reverseMask = 0;
-subInfo.parameters.reverseLR = 0;
+% subInfo.parameters.createOccMask = 1;
+% subInfo.parameters.createMidSagMask = 1;
+subInfo.parameters.rightHanded = 1;
+%subInfo.parameters.leftHanded = 0;
+% subInfo.parameters.handedness = 0;% 0 = right handed, 1= left handed
+% subInfo.parameters.reverseOccMask = 0;
+% subInfo.parameters.reverseMidSagMask = 0;
 subInfo.parameters.minDist = 5;
 
 %% parameters for rest processing

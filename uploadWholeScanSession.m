@@ -22,27 +22,7 @@ end
 % we need to go to the first dcm file and extract the info by
 % ourselves
 % let's check how many dicom files in this directory
-studyDir = dir(fullfile(subPath, 'Study*'));
-
-if isempty(studyDir)
-    rawDataDir = 'Raw_Data';
-    studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-else
-    rawDataDir = '';
-end
-
-if (length(studyDir) == 1)
-    % enter to the study dir and show all series numbers
-    studyDirName = studyDir.name;
-    studyPath = fullfile(subPath, rawDataDir, studyDirName);
-    if exist(studyPath, 'dir')
-        cd(studyPath)
-    end
-else
-    studyPath = subPath;
-end
-
-seriesDir = dir(fullfile(studyPath, 'Series*'));
+[studyPath, seriesDir] = getRawDataPath(subPath);
 
 if ~isempty(seriesDir)
     seriesDirName = {seriesDir.name}';
@@ -62,6 +42,10 @@ if isfield(dcm.PatientName, 'MiddleName')
     s = lower([dcm.PatientName.FamilyName '_'...
         dcm.PatientName.MiddleName '_'...
         dcm.PatientName.GivenName]);
+elseif ~isfield(dcm.PatientName, 'GivenName') && isfield(dcm.PatientName, 'FamilyName')
+    s = lower(dcm.PatientName.FamilyName);
+elseif ~isfield(dcm.PatientName, 'FamilyName') && isfield(dcm.PatientName, 'GivenName')
+    s = lower(dcm.PatientName.GivenName);
 else
     s = lower([dcm.PatientName.FamilyName '_'...
         dcm.PatientName.GivenName]);
@@ -89,7 +73,10 @@ if ~isempty(isEEG)
             movefile(source, destination)
             subPath = destination;
             cd(subPath)
-            rmdir(source)
+            
+            if exist(source, 'dir')
+                rmdir(source)
+            end
         end
         
     end
@@ -104,30 +91,10 @@ fprintf('Uploading subject''s whole scan session.. \n(this may take a while sinc
 cd(subPath);
 % let's see the folders we have and get into the study folder
 % find the index of a file \ folder
-studyDir = dir(fullfile(subPath, 'Study*'));
-
-if isempty(studyDir)
-    rawDataDir = 'Raw_Data';
-    studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-else
-    rawDataDir = '';
-end
-
-if (length(studyDir) == 1)
-    % enter to the study dir and show all series numbers
-    studyDirName = studyDir.name;
-    studyPath = fullfile(subPath, rawDataDir, studyDirName);
-    if exist(studyPath, 'dir')
-        cd(studyPath)
-    end
-else
-    studyPath = subPath;
-end
-
-sDir = dir(fullfile(studyPath, 'Series*'));
-
-if ~isempty(sDir)
-    sDirNames = { sDir(:).name }';
+ [studyPath, seriesDir] = getRawDataPath(subPath);
+ 
+if ~isempty(seriesDir)
+    sDirNames = { seriesDir(:).name }';
     
     wholeScanSession = {};
     
@@ -253,8 +220,6 @@ if ~isempty(sDir)
                     pName = [pName{:}];
                 end
             end
-            
-            
             
             wholeScanSession{i, 4} = pName;
             wholeScanSession{i, 5} = pNum;

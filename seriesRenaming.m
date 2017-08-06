@@ -404,11 +404,32 @@ global subPath
 
 protocolTable = get(handles.protocolTable, 'Data');
 
-% let's first recheck that all fits. if something does not fit (between
-% series index and the series name) - alert the user
-studyPath = fullfile(subPath, 'Study');
-studyName = dir([studyPath '*']);
-if (~isempty(studyName))
+% let's see the folders we have and get into the study folder
+% find the index of a file \ folder
+studyDir = dir(fullfile(subPath, 'Study*'));
+
+if isempty(studyDir)
+    rawDataDir = 'Raw_Data';
+    studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
+else
+    rawDataDir = '';
+end
+
+if (length(studyDir) == 1)
+    % enter to the study dir and show all series numbers
+    studyDirName = studyDir.name;
+    studyPath = fullfile(subPath, rawDataDir, studyDirName);
+    if exist(studyPath, 'dir')
+        cd(studyPath)
+    end
+else
+    studyPath = subPath;
+end
+
+sDir = dir(fullfile(studyPath, 'Series*'));
+
+
+if ~isempty(sDir)
     
     protocolTable = updateSeries(protocolTable);
     set(handles.protocolTable, 'Data', protocolTable);
@@ -426,7 +447,6 @@ if (~isempty(studyName))
     str = 'Out of series index!';
     t = strfind(indexError, str);
     index_nErr = find(~cellfun(@isempty,t));
-    
     if (isempty(mismatch_nErr) && isempty(index_nErr))
         if exist(fullfile(subPath, 'subInfo.mat'), 'file')
             subInfofile = fullfile(subPath, 'subInfo.mat');
@@ -449,6 +469,7 @@ if (~isempty(studyName))
                 end
             end
             
+            
             if  doSR_flag, % apply series renaming again.
                 disp('let''s do some series renaming!')
                 titles = {'' 'Session #' 'Description' 'Series name' 'Series index' 'Remarks'};
@@ -461,6 +482,7 @@ if (~isempty(studyName))
                 %%%%%%%%%%%%%%%%%%%%%%
                 fprintf('OK, all is good, let''s continue!\n\n');
                 [subInfo, status_flag] = seriesRenamingClinic(subInfo, protocolTable);
+                
                 
                 if (status_flag == 0) % used to be 1
                     errStr = sprintf('Failed to do series renaming on %s !! \nPlease check if the series names and indices are correct', subName);
@@ -500,6 +522,12 @@ if (status_flag == 1)
             movefile(fullfile(subPath, studyName), fullfile( subPath, 'Raw_Data' ) )
         end
         
+        studyFolder = dir(fullfile(subPath, 'Series*'));
+        if ~isempty(studyFolder)
+            fprintf('Moving %s to Raw_Data folder\n', fullfile(subPath, 'Series*'))
+            movefile(fullfile(subPath, 'Series*'), fullfile( subPath, 'Raw_Data' ) )
+        end
+        
     else
         studyFolder = dir(fullfile(subPath, 'Study*'));
         if ~isempty(studyFolder)
@@ -509,6 +537,13 @@ if (status_flag == 1)
         end
         
         studyFolder = dir(fullfile(subPath, 'No_Study_Name*'));
+        if ~isempty(studyFolder)
+            studyName = studyFolder.name;
+            fprintf('Deleting %s\n', fullfile(subPath, studyName))
+            rmdir(fullfile(subPath, studyName) )
+        end
+        
+        studyFolder = dir(fullfile(subPath, 'Series*'));
         if ~isempty(studyFolder)
             studyName = studyFolder.name;
             fprintf('Deleting %s\n', fullfile(subPath, studyName))
@@ -537,7 +572,17 @@ function update_btn_Callback(hObject, eventdata, handles)
 % if you press on the Series Index cell - it will update to the new
 % protocol name according to the index.
 global subPath
-global protocolFile_raw
+
+protocolPath = 'M:\protocols-new';
+protocolFile = 'ProtocolsTable.xls';
+pfile = fullfile(protocolPath, protocolFile);
+cd(protocolPath);
+if ((exist(pfile, 'file')) == 2)
+    [data, txt, protocolFile_raw] = xlsread(pfile); % basic for quicker reading
+    % [data, txt, protocolFile_raw] = xlsread(pfile, '', '', 'basic'); % basic for quicker reading
+else
+    fprintf('%s file was not found!!\n', pfile);
+end
 
 %opening the folder for inspection
 protocolTable = get(handles.protocolTable, 'Data');

@@ -77,28 +77,7 @@ if length(varargin) == 1
     
     % we need to make sure that there are Series folders in the subject's
     % path
-    
-    studyDir = dir(fullfile(subPath, 'Study*'));
-    
-    if isempty(studyDir)
-        rawDataDir = 'Raw_Data';
-        studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-    else
-        rawDataDir = '';
-    end
-    
-    if (length(studyDir) == 1)
-        % enter to the study dir and show all series numbers
-        studyDirName = studyDir.name;
-        studyPath = fullfile(subPath, rawDataDir, studyDirName);
-        if exist(studyPath, 'dir')
-            cd(studyPath)
-        end
-    else
-        studyPath = subPath;
-    end
-    
-    seriesDir = dir(fullfile(studyPath, 'Series*'));
+    [studyPath, seriesDir] = getRawDataPath(subPath);
     
     if ~isempty(seriesDir)
         
@@ -172,27 +151,7 @@ function varargout = seriesRenaming_indSeries_OutputFcn(hObject, eventdata, hand
 varargout{1} = handles.output;
 global subPath
 
-studyDir = dir(fullfile(subPath, 'Study*'));
-
-if isempty(studyDir)
-    rawDataDir = 'Raw_Data';
-    studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-else
-    rawDataDir = '';
-end
-
-if (length(studyDir) == 1)
-    % enter to the study dir and show all series numbers
-    studyDirName = studyDir.name;
-    studyPath = fullfile(subPath, rawDataDir, studyDirName);
-    if exist(studyPath, 'dir')
-        cd(studyPath)
-    end
-else
-    studyPath = subPath;
-end
-
-seriesDir = dir(fullfile(studyPath, 'Series*'));
+[studyPath, seriesDir] = getRawDataPath(subPath);
 
 if isempty(seriesDir)
     close;
@@ -326,34 +285,14 @@ if ~isempty(eventdata.Indices)
     
     % if you press on the Description cell - the folder will open in a new window.
     
-    studyDir = dir(fullfile(subPath, 'Study*'));
-    
-    if isempty(studyDir)
-        rawDataDir = 'Raw_Data';
-        studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-    else
-        rawDataDir = '';
-    end
-    
-    if (length(studyDir) == 1)
-        % enter to the study dir and show all series numbers
-        studyDirName = studyDir.name;
-        studyPath = fullfile(subPath, rawDataDir, studyDirName);
-        if exist(studyPath, 'dir')
-            cd(studyPath)
-        end
-    else
-        studyPath = subPath;
-    end
-    
-    sDir = dir(fullfile(studyPath, 'Series*'));
+    [studyPath, seriesDir] = getRawDataPath(subPath);
     
     %%%%%%%%%%%%%%%%%%
     %     studyPath = fullfile(subPath, 'Study');
     %     studyDirName = dir([studyPath '*']);
     %     studyDirName = studyDirName.name;
     %      sDir = dir(fullfile(subPath, studyDirName, 'Series*'));
-    sDirNames = { sDir(:).name };
+    sDirNames = { seriesDir(:).name };
     
     %loc = str2num(protocolTable{row, 2});
     curPath = fullfile(studyPath, char(sDirNames(row)));
@@ -476,30 +415,9 @@ protocolTable = get(handles.protocolTable, 'Data');
 % series index and the series name) - alert the user
 % studyPath = fullfile(subPath, 'Study');
 % studyName = dir([studyPath '*']);
+[studyPath, seriesDir] = getRawDataPath(subPath);
 
-studyDir = dir(fullfile(subPath, 'Study*'));
-
-if isempty(studyDir)
-    rawDataDir = 'Raw_Data';
-    studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-else
-    rawDataDir = '';
-end
-
-if (length(studyDir) == 1)
-    % enter to the study dir and show all series numbers
-    studyDirName = studyDir.name;
-    studyPath = fullfile(subPath, rawDataDir, studyDirName);
-    if exist(studyPath, 'dir')
-        cd(studyPath)
-    end
-else
-    studyPath = subPath;
-end
-
-sDir = dir(fullfile(studyPath, 'Series*'));
-
-if (~isempty(sDir))
+if (~isempty(seriesDir))
     
     protocolTable = updateSeries(protocolTable);
     set(handles.protocolTable, 'Data', protocolTable);
@@ -678,7 +596,17 @@ function update_btn_Callback(hObject, eventdata, handles)
 % if you press on the Series Index cell - it will update to the new
 % protocol name according to the index.
 global subPath
-global protocolFile_raw
+
+protocolPath = 'M:\protocols-new';
+protocolFile = 'ProtocolsTable.xls';
+pfile = fullfile(protocolPath, protocolFile);
+cd(protocolPath);
+if ((exist(pfile, 'file')) == 2)
+    [data, txt, protocolFile_raw] = xlsread(pfile); % basic for quicker reading
+    % [data, txt, protocolFile_raw] = xlsread(pfile, '', '', 'basic'); % basic for quicker reading
+else
+    fprintf('%s file was not found!!\n', pfile);
+end
 
 %opening the folder for inspection
 protocolTable = get(handles.protocolTable, 'Data');

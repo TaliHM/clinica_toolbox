@@ -6,13 +6,11 @@ function [subInfo, status_flag] = seriesRenamingClinic(subInfo, pTable)
 % series number as designated by the MRI scanner (mri_idx), and second column is the
 % series number according the clinical fMRI table (pTable_idx).
 % NumberOfDirectionForDTI - Just for creating a folder name with the correct number of direction.
-spmViewerPath = 'M:\viewer_SPM'; % the path to mricron program
-dti_nDirections = subInfo.parameters.dti_nDirections;
-dtiFolder = ['DTI_' num2str( dti_nDirections )];
+viewerPath = 'M:\clinica\pre-processing scripts\viewer_dir_template'; % the path to mricron program
 FileVersion = 'v1'; %19.01.2016 - THM
 status_flag = 0;
-subPath = subInfo.path;
 
+subPath = subInfo.path;
 % creating seriesIndices array
 % first column is the series number as designated by the MRI scanner (mri_idx)
 % second column is the series number according the clinical fMRI table (pTable_idx).
@@ -75,38 +73,48 @@ try
     end
     
     LIpath = fullfile( subPath, 'Analysis', 'LI');
-    
     if ~exist(LIpath, 'dir')
         mkdir(LIpath);
     end
     
-    
+    dti_nDirections = subInfo.parameters.dti_nDirections;
+    dtiFolder = ['DTI_' num2str( dti_nDirections )];
+
     if ~exist( fullfile( subPath, 'Analysis', dtiFolder, 'Fibers' ),'dir' ), % create folder: Fibers inside Analysis
         mkdir( fullfile( subPath, 'Analysis', dtiFolder, 'Fibers' ) );
     end
     
     if ~exist( fullfile( subPath, 'viewer' ) ,'dir'), % create folder: viewer
         mkdir( fullfile( subPath, 'viewer' ) );
-        copyfile( spmViewerPath, fullfile( subPath, 'viewer' ) ); %copy "mricron" into it
+        copyfile( viewerPath, fullfile( subPath, 'viewer' ) ); %copy "mricron" into it
     end
     
     % creating Analysis, DTI and viewer folders in the subject's dir
-    if ~exist( fullfile( subPath, 'Raw_Data' ),'dir' ), % create folder: Analysis
+    if ~exist( fullfile( subPath, 'Raw_Data' ),'dir' ), 
         mkdir( fullfile( subPath, 'Raw_Data' ) );
     end
     
     % creating Analysis, DTI and viewer folders in the subject's dir
-    if ~exist( fullfile( subPath, 'Figures' ),'dir' ), % create folder: Analysis
-        mkdir( fullfile( subPath, 'Figures' ) );
+    if ~exist( fullfile( subPath, 'viewer', 'figures' ),'dir' ), 
+        mkdir( fullfile( subPath, 'viewer', 'figures' ) );
     end
+    
+    if ~exist( fullfile( subPath, 'viewer', 'figures', 'multislice' ),'dir' ), 
+        mkdir( fullfile( subPath, 'viewer', 'figures', 'multislice' ) );
+    end
+    
     
     isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
     if ~isempty(isEEG)
-        if ~exist( fullfile( subPath, 'Spikes_xls' ),'dir' ), % create folder: Analysis
+        if ~exist( fullfile( subPath, 'Spikes_xls' ),'dir' ),
             mkdir( fullfile( subPath, 'Spikes_xls' ) );
         end
+        
+        if ~exist( fullfile( subPath, 'EEG_Data' ),'dir' ),
+            mkdir( fullfile( subPath, 'EEG_Data' ) );
+        end
     end
-                        
+    
     
     %     studyDir = dir(fullfile(subPath, 'Study*'));
     %
@@ -123,27 +131,8 @@ try
     %     % creating a list with directories that start with: Series
     %     seriesDir = dir(fullfile(studyPath, 'Series*'));
     
-    studyDir = dir(fullfile(subPath, 'Study*'));
+    [studyPath, seriesDir] = getRawDataPath(subPath);
     
-    if isempty(studyDir)
-        rawDataDir = 'Raw_Data';
-        studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-    else
-        rawDataDir = '';
-    end
-    
-    if (length(studyDir) == 1)
-        % enter to the study dir and show all series numbers
-        studyDirName = studyDir.name;
-        studyPath = fullfile(subPath, rawDataDir, studyDirName);
-        if exist(studyPath, 'dir')
-            cd(studyPath)
-        end
-    else
-        studyPath = subPath;
-    end
-    
-    seriesDir = dir(fullfile(studyPath, 'Series*'));
     if ~isempty(seriesDir)
         seriesDirName = {seriesDir.name}';
         
@@ -189,7 +178,7 @@ try
                 % if it is still(!) empty, let's try our luck and maybe
                 % it's an eeg-fmri session - we'll check the path
                 if isempty(scanType)
-                    isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+                    %isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
                     
                     if ~isempty(isEEG)
                         scanType = {'fmri'};
@@ -235,7 +224,7 @@ try
                             %path
                             % searching for the Analysis in the path string and
                             % extracting the name before it
-                            isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+                            %isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
                             
                             if ~isempty(isEEG)
                                 % checking the number of dicom files = number or repititons
@@ -401,9 +390,18 @@ try
                 else
                     for ind = 1:length(nfiles)
                         source = fullfile(curSeriesName_newFormat_path, nfiles{ind});
-                        destination = fullfile(curSeriesName_newFormat_path, [prefix num2str(ind, '%0.2d') '.nii']);
+                        destination = fullfile(curSeriesName_newFormat_path, [prefix num2str(ind, '%0.3d') '.nii']);
                         movefile(source, destination)
                     end
+                end
+                
+                % the folder name of the DTI should contain the number of
+                % directions (i.e. number of files)
+                if isequal(prefix, 'dti_')
+                    dti_nDirections = size(nfiles, 1);
+                    dtiFolder = ['DTI_' num2str( dti_nDirections )];
+                    subInfo.parameters.dti_nDirections = dti_nDirections;
+                    dest = dtiFolder;
                 end
                 
                 % now that we know where we want to put the files -
@@ -418,7 +416,7 @@ try
                 source = fullfile(curSeriesName_newFormat_path, '*.nii');
                 destination = destPath;
                 movefile(source, destination)
-                
+
                 % let's add this renaming stage to the batch file, so
                 % it will be possible in the future to do so manually
                 % without opening seriesrenaming
@@ -436,13 +434,13 @@ try
                     '@set counterFormatted="1"' char(10) ,...
                     '@for /f "tokens=*" %%f in (''dir /b /od *.nii'') do @(' char(10) ,...
                     '@set counterFormatted=00!counter!' char(10) ,...
-                    '@rename %%f ' prefix '!counterFormatted:~-2!.nii' char(10) ,...
+                    '@rename %%f ' prefix '!counterFormatted:~-3!.nii' char(10) ,...
                     '@set /a counter = !counter! + 1)'];
                 
                 % this string will create a new folder to which the nii
                 % files will eventually move
                 createDirStr = ['MD "' fullfile(curSeriesName_newFormat_path, fullSeriesName) '"'];
-                % this string moves the new nii files into the new
+                % this string moves the new nii files into the new folder
                 moveFilesStr = ['for /f %%a IN (''dir /b *.nii'') do move %%a ' fullfile(curSeriesName_newFormat_path, fullSeriesName)];
                 
                 str = sprintf('\n%s\n\n%s\n\n%s', renameStr, createDirStr, moveFilesStr);
@@ -483,6 +481,32 @@ try
             subInfo.SPGR = SPGRfile;
             %movefile( fullfile( spgrDir, spgrFile ), fullfile( spgrDir, 'SPGR.nii' ) );
         end
+        
+        % checking that the anatomy file is not too big (> 50 MB) if it
+        % does - we alert the subject.
+        chooseAnat = 0;
+        while chooseAnat == 0
+            s = dir(fullfile(SPGRpath, subInfo.SPGR));
+            if (s.bytes > 52428800)
+                str = sprintf('HEADS UP! the anatomy file you have chosen is bigger than %.0f MB!\nThis may mean that fMRI processing might take a long while\nDo you wish to choose another one?', ceil(52428800/(1024^2)));
+                choice = questdlg(str, ...
+                    '', ...
+                    'Yes','No', 'No');
+                if isequal(choice, 'No')
+                    % do not apply series renaming again, wo we're moving to the next step
+                    subInfo.SPGR = SPGRfile;
+                    chooseAnat = 1;
+                else
+                    % let's prompt our user to select a file that would be the SPGR
+                    % file
+                    SPGRfile = uigetfile(fullfile(SPGRpath, '*.nii'), 'Select anatomy file') ;
+                    chooseAnat = 0;
+                end
+            else
+                chooseAnat = 1;
+            end
+        end
+        
         save( fullfile(subPath, 'subInfo.mat'), 'subInfo')
     end
     

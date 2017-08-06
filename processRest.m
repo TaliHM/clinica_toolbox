@@ -70,50 +70,52 @@ if length(varargin) == 1
         subInfo = varargin{1};
     end
     
-    subPath = subInfo.path;
+% % % %     subPath = subInfo.path;
     
-    % setting subject name nicely...
-    s = strsplit(lower(subInfo.name), {'_', ' '});
-    s = s(~cellfun('isempty',deblank(s)));
-    s = regexprep(s,'(\<[a-z])','${upper($1)}');
-    s = strjoin(s, ' ');
+    [subInfo, handles] = updateGUIparameters(subInfo, handles, 'processRest');
     
-    set(handles.subName, 'String', s)
+% % % %     % setting subject name nicely...
+% % % %     s = strsplit(lower(subInfo.name), {'_', ' '});
+% % % %     s = s(~cellfun('isempty',deblank(s)));
+% % % %     s = regexprep(s,'(\<[a-z])','${upper($1)}');
+% % % %     s = strjoin(s, ' ');
+% % % %     
+% % % %     set(handles.subName, 'String', s)
+% % % %     
+% % % %     % now setting the SPGR_text - which shows the current spgr file that we are
+% % % %     % using for coregistration
+% % % %     %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
+% % % %     str = sprintf('%s', subInfo.SPGR);
+% % % %     set(handles.SPGR_text, 'String', str);
+% % % %     
+% % % %     if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
+% % % %     if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
+% % % %     if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
+% % % %     if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
+% % % %     
+% % % %     % let's update this figure with the subject's default parameters
+% % % %     if ~isfield(subInfo, 'parameters'),
+% % % %         subInfo = setDefaultParameters(subInfo);
+% % % %     end
     
-    % now setting the SPGR_text - which shows the current spgr file that we are
-    % using for coregistration
-    %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
-    str = sprintf('%s', subInfo.SPGR);
-    set(handles.SPGR_text, 'String', str);
-    
-    if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
-    if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
-    if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
-    if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
-    
-    % let's update this figure with the subject's default parameters
-    if ~isfield(subInfo, 'parameters'),
-        subInfo = setDefaultParameters(subInfo);
-    end
-    
-    if isfield(subInfo.parameters, 'cutoff'), set(handles.cutoff, 'String', sprintf('%.2f  -  %.2f', subInfo.parameters.cutoff)); end
-    if isfield(subInfo.parameters, 'roiRadius'), set(handles.roiRadius, 'String', subInfo.parameters.roiRadius); end
-    
-    if isfield(subInfo.parameters, 'wmCenter'),
-        if ~isempty(subInfo.parameters.wmCenter)
-            set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter));
-        else
-            set(handles.wmCenter, 'String', '')
-        end
-    end
-    
-    if isfield(subInfo.parameters, 'csfCenter'),
-        if ~isempty(subInfo.parameters.csfCenter)
-            set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter));
-        else
-            set(handles.csfCenter, 'String', '')
-        end
-    end
+% % % %     if isfield(subInfo.parameters, 'cutoff'), set(handles.cutoff, 'String', sprintf('%.2f  -  %.2f', subInfo.parameters.cutoff)); end
+% % % %     if isfield(subInfo.parameters, 'roiRadius'), set(handles.roiRadius, 'String', subInfo.parameters.roiRadius); end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'wmCenter'),
+% % % %         if ~isempty(subInfo.parameters.wmCenter)
+% % % %             set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter));
+% % % %         else
+% % % %             set(handles.wmCenter, 'String', '')
+% % % %         end
+% % % %     end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'csfCenter'),
+% % % %         if ~isempty(subInfo.parameters.csfCenter)
+% % % %             set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter));
+% % % %         else
+% % % %             set(handles.csfCenter, 'String', '')
+% % % %         end
+% % % %     end
     
     
     % and checking if there is an roi table, if there is - let's show it

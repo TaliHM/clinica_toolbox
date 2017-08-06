@@ -22,7 +22,7 @@ function varargout = superimpose(varargin)
 
 % Edit the above text to modify the response to help superimpose
 
-% Last Modified by GUIDE v2.5 29-May-2016 14:18:56
+% Last Modified by GUIDE v2.5 28-Jun-2017 11:22:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -84,47 +84,49 @@ if length(varargin) == 1
     % setting up the paths
     analysisPath = fullfile( subPath, 'Analysis' );
     
-    % now setting the SPGR_text - which shows the current spgr file that we are
-    % using for coregistration
-    %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
-    if isfield(subInfo, 'SPGR')
-        str = sprintf('%s', subInfo.SPGR);
-    else
-        str = '';
-    end
-    set(handles.SPGR_text, 'String', str);
+    [subInfo, handles] = updateGUIparameters(subInfo, handles, 'superimpose');
     
-    % let's update this figure with the subject's information
-    if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
-    if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
-    if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
-    if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
-    if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
-    
-    % let's update this figure with the subject's default parameters
-    if ~isfield(subInfo, 'parameters'),
-        subInfo = setDefaultParameters(subInfo);
-    end
-    
-    if isfield(subInfo.parameters, 'dti_nDirections'), set(handles.dti_nDirections, 'String', subInfo.parameters.dti_nDirections); end
-    if isfield(subInfo.parameters, 'infSupFlip'), set(handles.infSupFlip, 'String', subInfo.parameters.infSupFlip); end
-    if isfield(subInfo.parameters, 'upDownFlip'), set(handles.upDownFlip, 'String', subInfo.parameters.upDownFlip); end
-    
-    if isfield(subInfo.parameters, 'wmCenter'),
-        if ~isempty(subInfo.parameters.wmCenter)
-            set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter));
-        else
-            set(handles.wmCenter, 'String', '')
-        end
-    end
-    
-    if isfield(subInfo.parameters, 'csfCenter'),
-        if ~isempty(subInfo.parameters.csfCenter)
-            set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter));
-        else
-            set(handles.csfCenter, 'String', '')
-        end
-    end
+% % % %     % now setting the SPGR_text - which shows the current spgr file that we are
+% % % %     % using for coregistration
+% % % %     %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
+% % % %     if isfield(subInfo, 'SPGR')
+% % % %         str = sprintf('%s', subInfo.SPGR);
+% % % %     else
+% % % %         str = '';
+% % % %     end
+% % % %     set(handles.SPGR_text, 'String', str);
+% % % %     
+% % % %     % let's update this figure with the subject's information
+% % % %     if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
+% % % %     if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
+% % % %     if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
+% % % %     if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
+% % % %     if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
+% % % %     
+% % % %     % let's update this figure with the subject's default parameters
+% % % %     if ~isfield(subInfo, 'parameters'),
+% % % %         subInfo = setDefaultParameters(subInfo);
+% % % %     end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'dti_nDirections'), set(handles.dti_nDirections, 'String', subInfo.parameters.dti_nDirections); end
+% % % %     if isfield(subInfo.parameters, 'infSupFlip'), set(handles.infSupFlip, 'String', subInfo.parameters.infSupFlip); end
+% % % %     if isfield(subInfo.parameters, 'upDownFlip'), set(handles.upDownFlip, 'String', subInfo.parameters.upDownFlip); end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'wmCenter'),
+% % % %         if ~isempty(subInfo.parameters.wmCenter)
+% % % %             set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter));
+% % % %         else
+% % % %             set(handles.wmCenter, 'String', '')
+% % % %         end
+% % % %     end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'csfCenter'),
+% % % %         if ~isempty(subInfo.parameters.csfCenter)
+% % % %             set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter));
+% % % %         else
+% % % %             set(handles.csfCenter, 'String', '')
+% % % %         end
+% % % %     end
     
     fmrifiles = {};
     
@@ -174,7 +176,7 @@ if length(varargin) == 1
     
     % check that we have other folders than the default ones (i.e.;
     % DTI_41, func, anat, and LI)
-    dirType = regexpi(lower(dirs), '(dti20|dti_41|li|anat|func|out*)+[^(_| |-)]*', 'match');
+    dirType = regexpi(lower(dirs), '^(?=.*\<(?:dti20|dti_41|dti_31|li|anat|func|out)\>).*', 'match');
     idx = find(cellfun(@isempty,dirType));
     
     if ~isempty(idx)
@@ -760,7 +762,8 @@ end
 % send the files from the files_table, one at a time to the
 % superimposeClinic
 files_table = get(handles.files_table, 'Data');
-superimposeClinic(subInfo, files_table)
+createColorDcm = get(handles.createColorDcm, 'Value');
+superimposeClinic(subInfo, files_table, createColorDcm)
 % close;
 
 function edit17_Callback(hObject, eventdata, handles)
@@ -1498,3 +1501,12 @@ function resetRestSPGR_btn_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 global restSPGRfile
 restSPGRfile = '';
+
+
+% --- Executes on button press in createColorDcm.
+function createColorDcm_Callback(hObject, eventdata, handles)
+% hObject    handle to createColorDcm (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of createColorDcm

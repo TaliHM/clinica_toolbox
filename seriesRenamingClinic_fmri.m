@@ -31,31 +31,12 @@ seriesNames = pTable(:,4);
 % else
 %     studyDirName = '';
 % end
-% 
+%
 % % if (length(studyDirName) == 1)
 % % enter to the study dir and show all series numbers
 % studyPath = fullfile(subPath, studyDirName);
 
-studyDir = dir(fullfile(subPath, 'Study*'));
-
-if isempty(studyDir)
-    rawDataDir = 'Raw_Data';
-    studyDir = dir(fullfile(subPath, rawDataDir, 'Study*'));
-else
-    rawDataDir = '';
-end
-
-if (length(studyDir) == 1)
-    % enter to the study dir and show all series numbers
-    studyDirName = studyDir.name;
-    studyPath = fullfile(subPath, rawDataDir, studyDirName);
-    if exist(studyPath, 'dir')
-        cd(studyPath)
-    end
-else
-    studyPath = subPath;
-end
-
+[studyPath, seriesDir] = getRawDataPath(subPath);
 
 str = sprintf('Series no. %s', num2str( dcm.SeriesNumber ) );
 disp( str );
@@ -97,6 +78,19 @@ if ~isempty(isRest)
     subInfo.fMRIsession.(fieldname).seriesNumber = dcm.SeriesNumber;
     subInfo.fMRIsession.(fieldname).seriesDescription = curSeriesName_newFormat;
     subInfo.fMRIsession.(fieldname).dcmInfo_org = dcm;
+    subInfo.fMRIsession.(fieldname).smoothSize = 4;
+    subInfo.fMRIsession.(fieldname).lag = 0;
+    
+    % how many volumes to skip at the beggining
+    % if its the old magnet (GE) than we need to take off the first 6 volumes.
+    % otherwise - only 3 volumes to be skipped.
+    % eeg - 0 skipped
+    scannerName = subInfo.dcmInfo_org.Manufacturer;
+    if strfind(scannerName, 'GE')
+        subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip = 6;
+    else
+        subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip = 3;
+    end
     
 else % it's an fmri session thatexists in out protocol table file (and not the rest session)
     % finding the dcm series number and match to the seriesIndices that
@@ -205,7 +199,23 @@ else % it's an fmri session thatexists in out protocol table file (and not the r
                 % updating subInfo structure..
                 sName = regexp(lower(curSeriesName_newFormat), '\w*[^(\d*rep)]*', 'match');
                 sName = strjoin(sName,'_');
+                sName = strrep(sName, '-', '');
                 fieldname = ['se' num2str( dcm.SeriesNumber, '%0.2d') '_' sName];
+                
+                subInfo.fMRIsession.(fieldname).smoothSize = 4;
+                subInfo.fMRIsession.(fieldname).lag = 0;
+                
+                % how many volumes to skip at the beggining
+                % if its the old magnet (GE) than we need to take off the first 6 volumes.
+                % otherwise - only 3 volumes to be skipped.
+                % eeg - 0 skipped
+                scannerName = subInfo.dcmInfo_org.Manufacturer;
+                if strfind(scannerName, 'GE')
+                    subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip = 6;
+                else
+                    subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip = 3;
+                end
+                
                 
                 subInfo.fMRIsession.(fieldname).seriesNumber = dcm.SeriesNumber;
                 subInfo.fMRIsession.(fieldname).seriesDescription = curSeriesName_newFormat;
@@ -291,6 +301,7 @@ else % it's an fmri session thatexists in out protocol table file (and not the r
                 if (cellCount > 0)
                     for cRow = 1:cellCount
                         curContrast = strrep(raw{curSeriesIndex, cName}, '.', '');
+                        curContrast = strrep(curContrast, ' ', '_');
                         contrasts{cRow,1} = curContrast;
                         contrasts{cRow,2} = str2num(raw{curSeriesIndex, cNum});
                         
@@ -371,9 +382,21 @@ else % it's an fmri session thatexists in out protocol table file (and not the r
         subInfo.fMRIsession.(fieldname).seriesNumber = dcm.SeriesNumber;
         subInfo.fMRIsession.(fieldname).seriesDescription = curSeriesName_newFormat;
         subInfo.fMRIsession.(fieldname).dcmInfo_org = dcm;
+        subInfo.fMRIsession.(fieldname).smoothSize = 6;
+        subInfo.fMRIsession.(fieldname).lag = [1, 0, -1, -2, -3, -4, -5 ];
         
+        % how many volumes to skip at the beggining
+        % if its the old magnet (GE) than we need to take off the first 6 volumes.
+        % otherwise - only 3 volumes to be skipped.
+        % eeg - 0 skipped
+        scannerName = subInfo.dcmInfo_org.Manufacturer;
+        if strfind(scannerName, 'GE')
+            subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip = 6;
+        else
+            subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip = 0;
+        end
+        
+        save( fullfile(subPath, 'subInfo.mat'), 'subInfo')
     end
-    save( fullfile(subPath, 'subInfo.mat'), 'subInfo')
-end
-% end
+    % end
 end

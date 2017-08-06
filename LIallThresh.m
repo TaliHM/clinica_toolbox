@@ -22,7 +22,7 @@ function varargout = LIallThresh(varargin)
 
 % Edit the above text to modify the response to help LIallThresh
 
-% Last Modified by GUIDE v2.5 23-May-2016 23:46:30
+% Last Modified by GUIDE v2.5 03-Jul-2017 13:10:02
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -70,23 +70,27 @@ if length(varargin) == 1
     
     subPath = subInfo.path;
     
-    % let's update this figure with the subject's information
-    if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
-    if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
-    if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
-    if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
-    if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
+    [subInfo, handles] = updateGUIparameters(subInfo, handles, 'LIallThresh');
     
-    % let's update this figure with the subject's default parameters
-    if ~isfield(subInfo, 'parameters'),
-        subInfo = setDefaultParameters(subInfo);
-    end
+% % % %     % let's update this figure with the subject's information
+% % % %     if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
+% % % %     if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
+% % % %     if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
+% % % %     if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
+% % % %     if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
+% % % %     
+% % % %     % let's update this figure with the subject's default parameters
+% % % %     if ~isfield(subInfo, 'parameters'),
+% % % %         subInfo = setDefaultParameters(subInfo);
+% % % %     end
     
-    if isfield(subInfo.parameters, 'createOccMask'), set(handles.createOccMask, 'String', subInfo.parameters.createOccMask); end
-    if isfield(subInfo.parameters, 'handedness'), set(handles.handedness, 'String', subInfo.parameters.handedness); end
-    if isfield(subInfo.parameters, 'reverseMask'), set(handles.reverseMask, 'String', subInfo.parameters.reverseMask); end
-    if isfield(subInfo.parameters, 'reverseLR'), set(handles.reverseLR, 'String', subInfo.parameters.reverseLR); end
-    if isfield(subInfo.parameters, 'minDist'), set(handles.minDist, 'String', subInfo.parameters.minDist); end
+% % % %     set(handles.createOccMask, 'Value', 1);
+% % % %     set(handles.createMidSagMask, 'Value', 1);
+% % % %     if isfield(subInfo.parameters, 'rightHanded'), set(handles.rightHanded, 'Value', subInfo.parameters.rightHanded); end
+% % % %     %     if isfield(subInfo.parameters, 'leftHanded'), set(handles.leftHanded, 'Value', subInfo.parameters.leftHanded); end
+% % % %     set(handles.reverseOccMask, 'Value', 0);
+% % % %     set(handles.reverseMidSagMask, 'Value', 0);
+% % % %     if isfield(subInfo.parameters, 'minDist'), set(handles.minDist, 'String', subInfo.parameters.minDist); end
     
     
     if isfield(subInfo, 'fMRIsession')
@@ -126,75 +130,74 @@ if length(varargin) == 1
                     fmrifiles{end+1} = ['Se' num2str( seriesNumber, '%0.2d' ) '_' char(sName) '_' char(name)];
                 end
             end
-        end       
+        end
         
-         % now let's search in the analysis folder itself for things to show
+        % now let's search in the analysis folder itself for things to show
         dirs = dir(fullfile(analysisPath));
         dirs = {dirs.name};
         dirs = dirs(3:end);
         
         % check that we have other folders than the default ones (i.e.;
         % DTI_41, func, anat, and LI)
-        dirType = regexpi(lower(dirs), '(dti20|dti_41|li|anat|func|out*)+[^(_| |-)]*', 'match');
+        dirType = regexpi(lower(dirs), '^(?=.*\<(?:dti20|dti_41|li|anat|func|out)\>).*', 'match');
         idx = find(cellfun(@isempty,dirType));
         
         if ~isempty(idx)
             for n = 1:numel(idx)
-                if strcmpi(dirs{idx(n)}, 'eeg_lags')
-                    
-                    eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
-                    
-                    sessionDirs = dir(eegLagsPath);
-                    sessionDirs = {sessionDirs.name};
-                    sessionDirs = sessionDirs(3:end);
-                    
-                    for s = 1:size(sessionDirs, 2)
-                        curSess = sessionDirs{s};
-                        
-                        lagDirs = dir(fullfile(eegLagsPath, curSess));
-                        lagDirs = {lagDirs.name};
-                        lagDirs = lagDirs(3:end);
-                        
-                        for lg = 1:size(lagDirs, 2)
-                            curLag = lagDirs{lg};
-                            
-                            spmFiles = dir(fullfile(eegLagsPath, curSess, curLag, 'spmT_files'));
-                            spmFiles = {spmFiles.name};
-                            spmFiles = spmFiles(3:end);
-                            
-                            if ~isempty(spmFiles)
-                                
-                                % now lets set the fmri files..
-                                for i = 1:numel(spmFiles)                                    
-                                    isNIIfile = regexp(spmFiles{i}, 'nii', 'match');
-                                    if ~isempty(isNIIfile)
-                                        [~,name] = fileparts(spmFiles{i});
-                                        fmrifiles{end+1} = [curLag '_' char(name)];
-                                    end
-                                end
-                            end
-                        end
+                %                 if strcmpi(dirs{idx(n)}, 'eeg_lags')
+                %
+                %                     eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
+                %
+                %                     sessionDirs = dir(eegLagsPath);
+                %                     sessionDirs = {sessionDirs.name};
+                %                     sessionDirs = sessionDirs(3:end);
+                %
+                %                     for s = 1:size(sessionDirs, 2)
+                %                         curSess = sessionDirs{s};
+                %
+                %                         lagDirs = dir(fullfile(eegLagsPath, curSess));
+                %                         lagDirs = {lagDirs.name};
+                %                         lagDirs = lagDirs(3:end);
+                %
+                %                         for lg = 1:size(lagDirs, 2)
+                %                             curLag = lagDirs{lg};
+                %
+                %                             spmFiles = dir(fullfile(eegLagsPath, curSess, curLag, 'spmT_files'));
+                %                             spmFiles = {spmFiles.name};
+                %                             spmFiles = spmFiles(3:end);
+                %
+                %                             if ~isempty(spmFiles)
+                %
+                %                                 % now lets set the fmri files..
+                %                                 for i = 1:numel(spmFiles)
+                %                                     isNIIfile = regexp(spmFiles{i}, 'nii', 'match');
+                %                                     if ~isempty(isNIIfile)
+                %                                         [~,name] = fileparts(spmFiles{i});
+                %                                         fmrifiles{end+1} = [curLag '_' char(name)];
+                %                                     end
+                %                                 end
+                %                             end
+                %                         end
+                %                     end
+                %                 else
+                curDir = fullfile(analysisPath, dirs{idx(n)});
+                
+                allFiles = dir(curDir);
+                allFiles([allFiles.isdir]) = [];
+                names = {allFiles.name}';
+                % now lets set the fmri files..
+                for i = 1:numel(names)
+                    isNIIfile = regexp(names{i}, 'nii', 'match');
+                    if ~isempty(isNIIfile)
+                        [~,name] = fileparts(names{i});
+                        fmrifiles{end+1} = char(name);
                     end
-                else
-                    curDir = fullfile(analysisPath, dirs{idx(n)});
                     
-                    allFiles = dir(curDir);
-                    allFiles([allFiles.isdir]) = [];
-                    names = {allFiles.name}';
-                    % now lets set the fmri files..
-                    for i = 1:numel(names)
-                        isNIIfile = regexp(names{i}, 'nii', 'match');
-                        if ~isempty(isNIIfile)
-                            [~,name] = fileparts(names{i});
-                            fmrifiles{end+1} = [curLag '_' char(name)];
-                        end
-                        
-                    end
-                end 
+                end
+                %                 end
             end
         end
         
-       
         [~,idx] = unique(fmrifiles,'first');
         fmriOrder = fmrifiles(sort(idx));
         fmriFiles = fmriOrder';
@@ -377,10 +380,7 @@ if ~isempty(subPath)
         end
         
         % let's save the changed parameters to the subject's subInfo file
-        if ~isequal(get(handles.createOccMask, 'String'), num2str(subInfo.parameters.createOccMask)) || ...
-                ~isequal(get(handles.handedness, 'String'), num2str(subInfo.parameters.handedness)) || ...
-                ~isequal(get(handles.reverseMask, 'String'), num2str(subInfo.parameters.reverseMask)) || ...
-                ~isequal(get(handles.reverseLR, 'String'), num2str(subInfo.parameters.reverseLR)) || ...
+        if ~isequal(get(handles.rightHanded, 'Value'), subInfo.parameters.rightHanded) || ...
                 ~isequal(get(handles.minDist, 'String'), num2str(subInfo.parameters.minDist))
             reSave_flag = 1;
         end
@@ -397,13 +397,29 @@ if reSave_flag,
     % Handle response
     if isequal(choice, 'Yes')
         disp('Saving the new parameters.')
-        save_btn_Callback(hObject, eventdata, handles)
+        
+        if ~isequal(get(handles.rightHanded, 'Value'), num2str(subInfo.parameters.rightHanded)),
+            subInfo.parameters.rightHanded = get(handles.rightHanded, 'Value');
+        end
+        
+        if ~isequal(get(handles.minDist, 'String'), num2str(subInfo.parameters.minDist)),
+            subInfo.parameters.minDist = str2double(get(handles.minDist, 'String'));
+        end
+        save( fullfile(subPath, 'subInfo.mat'), 'subInfo')
+        subInfofile = fullfile(subPath, 'subInfo.mat');
+        load(subInfofile)
     end
 end
 varargout = LIallThresh_OutputFcn(hObject, eventdata, handles);
 
+createOccMask = get(handles.createOccMask, 'Value');
+createMidSagMask = get(handles.createMidSagMask, 'Value');
+reverseOccMask = get(handles.reverseOccMask, 'Value');
+reverseMidSagMask = get(handles.reverseMidSagMask, 'Value');
+
+
 LI_list = get(handles.LI_list, 'String');
-LIallThreshClinic(subInfo, LI_list)
+LIallThreshClinic(subInfo, LI_list, createOccMask, createMidSagMask, reverseOccMask, reverseMidSagMask)
 close;
 
 function edit17_Callback(hObject, eventdata, handles)
@@ -446,10 +462,12 @@ if ~isempty(subPath)
         
         load(subInfofile)
         
-        if isfield(subInfo.parameters, 'createOccMask'), set(handles.createOccMask, 'String', subInfo.parameters.createOccMask); end
-        if isfield(subInfo.parameters, 'handedness'), set(handles.handedness, 'String', subInfo.parameters.handedness); end
-        if isfield(subInfo.parameters, 'reverseMask'), set(handles.reverseMask, 'String', subInfo.parameters.reverseMask); end
-        if isfield(subInfo.parameters, 'reverseLR'), set(handles.reverseLR, 'String', subInfo.parameters.reverseLR); end
+        %         if isfield(subInfo.parameters, 'createOccMask'), set(handles.createOccMask, 'String', subInfo.parameters.createOccMask); end
+        %         if isfield(subInfo.parameters, 'createMidSagMask'), set(handles.createMidSagMask, 'String', subInfo.parameters.createMidSagMask); end
+        if isfield(subInfo.parameters, 'rightHanded'), set(handles.rightHanded, 'String', subInfo.parameters.rightHanded); end
+        %         if isfield(subInfo.parameters, 'leftHanded'), set(handles.leftHanded, 'String', subInfo.parameters.leftHanded); end
+        %         if isfield(subInfo.parameters, 'reverseOccMask'), set(handles.reverseOccMask, 'String', subInfo.parameters.reverseOccMask); end
+        %         if isfield(subInfo.parameters, 'reverseMidSagMask'), set(handles.reverseMidSagMask, 'String', subInfo.parameters.reverseMidSagMask); end
         if isfield(subInfo.parameters, 'minDist'), set(handles.minDist, 'String', subInfo.parameters.minDist); end
         
     end
@@ -629,18 +647,18 @@ end
 
 
 
-function reverseMask_Callback(hObject, eventdata, handles)
-% hObject    handle to reverseMask (see GCBO)
+function reverseOccMask_Callback(hObject, eventdata, handles)
+% hObject    handle to reverseOccMask (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of reverseMask as text
-%        str2double(get(hObject,'String')) returns contents of reverseMask as a double
+% Hints: get(hObject,'String') returns contents of reverseOccMask as text
+%        str2double(get(hObject,'String')) returns contents of reverseOccMask as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function reverseMask_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to reverseMask (see GCBO)
+function reverseOccMask_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to reverseOccMask (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -652,18 +670,18 @@ end
 
 
 
-function reverseLR_Callback(hObject, eventdata, handles)
-% hObject    handle to reverseLR (see GCBO)
+function reverseMidSagMask_Callback(hObject, eventdata, handles)
+% hObject    handle to reverseMidSagMask (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of reverseLR as text
-%        str2double(get(hObject,'String')) returns contents of reverseLR as a double
+% Hints: get(hObject,'String') returns contents of reverseMidSagMask as text
+%        str2double(get(hObject,'String')) returns contents of reverseMidSagMask as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function reverseLR_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to reverseLR (see GCBO)
+function reverseMidSagMask_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to reverseMidSagMask (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -707,3 +725,45 @@ global subPath
 varargin{1} = subPath;
 clearAll_btn_Callback(hObject, eventdata, handles);
 LIallThresh_OpeningFcn(hObject, eventdata, handles, varargin)
+
+
+% --- Executes on button press in createMidSagMask.
+function createMidSagMask_Callback(hObject, eventdata, handles)
+% hObject    handle to createMidSagMask (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of createMidSagMask
+
+
+% --- Executes on button press in rightHanded.
+function rightHanded_Callback(hObject, eventdata, handles)
+% hObject    handle to rightHanded (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of rightHanded
+rightHandVal = get(hObject,'Value');
+if rightHandVal
+    set(handles.leftHanded, 'Value', 0);
+end
+
+% --- Executes on button press in leftHanded.
+function leftHanded_Callback(hObject, eventdata, handles)
+% hObject    handle to leftHanded (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of leftHanded
+leftHandVal = get(hObject,'Value');
+if leftHandVal
+    set(handles.rightHanded, 'Value', 0);
+end
+
+% --- Executes on button press in createOccMask.
+function checkbox6_Callback(hObject, eventdata, handles)
+% hObject    handle to createOccMask (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of createOccMask

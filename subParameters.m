@@ -22,7 +22,7 @@ function varargout = subParameters(varargin)
 
 % Edit the above text to modify the response to help subParameters
 
-% Last Modified by GUIDE v2.5 06-Jun-2017 14:09:49
+% Last Modified by GUIDE v2.5 03-Aug-2017 09:09:13
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -59,99 +59,117 @@ if length(varargin) == 1
     subInfo = varargin{1};
     subPath = subInfo.path;
     
-    % now setting the SPGR_text - which shows the current spgr file that we are
-    % using for coregistration
-    %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
-    if isfield(subInfo, 'SPGR')
-        str = sprintf('%s', subInfo.SPGR);
-    else
-        str = '';
-    end
-    set(handles.SPGR_text, 'String', str);
+    [subInfo, handles] = updateGUIparameters(subInfo, handles, '');
     
-    if exist(fullfile(subPath, 'subInfo.mat'), 'file')
-        subInfofile = fullfile(subPath, 'subInfo.mat');
-        load(subInfofile)
-        
-        % let's update this figure with the subject's information
-        if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
-        if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
-        if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
-        if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
-        if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
-        
-        % let's update this figure with the subject's default parameters
-        if ~isfield(subInfo, 'parameters'),
-            subInfo = setDefaultParameters(subInfo);
-        end
-        
-        if isfield(subInfo.parameters, 'dti_nDirections'), set(handles.dti_nDirections, 'String', subInfo.parameters.dti_nDirections); end
-        if isfield(subInfo.parameters, 'infSupFlip'), set(handles.infSupFlip, 'String', subInfo.parameters.infSupFlip); end
-        if isfield(subInfo.parameters, 'upDownFlip'), set(handles.upDownFlip, 'String', subInfo.parameters.upDownFlip); end
-        if isfield(subInfo.parameters, 'fileTemplate'), set(handles.fileTemplate, 'String', subInfo.parameters.fileTemplate); end
-        if isfield(subInfo.parameters, 'volumesFormat'), set(handles.volumesFormat, 'String', subInfo.parameters.volumesFormat); end
-        if isfield(subInfo.parameters, 'maxTranslation'), set(handles.maxTranslation, 'String', subInfo.parameters.maxTranslation); end
-        if isfield(subInfo.parameters, 'maxRotation'), set(handles.maxRotation, 'String', subInfo.parameters.maxRotation); end
-        if isfield(subInfo.parameters, 'nFirstVolumesToSkip'), set(handles.nFirstVolumesToSkip, 'String', subInfo.parameters.nFirstVolumesToSkip); end
-        if isfield(subInfo.parameters, 'acquisitionOrder'), set(handles.acquisitionOrder, 'String', subInfo.parameters.acquisitionOrder); end
-        if isfield(subInfo.parameters, 'smoothSize'), set(handles.smoothSize, 'String', subInfo.parameters.smoothSize); end
-        
-        
-        if isfield(subInfo.parameters, 'lag'),
-            if length(subInfo.parameters.lag)  == 1
-                set(handles.lag, 'String', subInfo.parameters.lag);
-            else
-                lg = [];
-                for gg = 1:size(subInfo.parameters.lag, 2)
-                    lg = [lg  sprintf(' %d ', subInfo.parameters.lag(gg))];
-                end
-                
-                set(handles.lag, 'String', lg);
-            end
-        end
-        
-        
-%         if isfield(subInfo.parameters, 'fmriFirstTrigger'),
-%             if length(subInfo.parameters.fmriFirstTrigger)  == 1
-%                 set(handles.fmriFirstTrigger, 'String', subInfo.parameters.fmriFirstTrigger);
-%             else
-%                 ft = [];
-%                 for ff = 1:size(subInfo.parameters.fmriFirstTrigger, 2)
-%                     ft = [ft  sprintf(' %d ', subInfo.parameters.fmriFirstTrigger(ff))];
-%                 end
-%                 
-%                 set(handles.fmriFirstTrigger, 'String', ft);
-%             end
-%         end
-        
-        
-        if isfield(subInfo.parameters, 'roiRadius'), set(handles.roiRadius, 'String', subInfo.parameters.roiRadius); end
-        if isfield(subInfo.parameters, 'cutoff'), set(handles.cutoff, 'String', sprintf('%.2f  -  %.2f', subInfo.parameters.cutoff)); end
-        %         if isfield(subInfo.parameters, 'cutoff'), set(handles.cutoff, 'String', [ '[' num2str(subInfo.parameters.cutoff, '   %.2f') ']' ]); end
-        
-        if isfield(subInfo.parameters, 'wmCenter'), set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter)); end
-        if isfield(subInfo.parameters, 'csfCenter'),set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter)); end
-        
-        if strcmp(deblank(get(handles.wmCenter, 'String')), '[')
-            set(handles.wmCenter, 'String', '')
-        end
-        
-        if strcmp(deblank(get(handles.csfCenter, 'String')), '[')
-            set(handles.csfCenter, 'String', '')
-        end
-        
-        if isfield(subInfo.parameters, 'createOccMask'), set(handles.createOccMask, 'String', subInfo.parameters.createOccMask); end
-        if isfield(subInfo.parameters, 'handedness'), set(handles.handedness, 'String', subInfo.parameters.handedness); end
-        if isfield(subInfo.parameters, 'reverseMask'), set(handles.reverseMask, 'String', subInfo.parameters.reverseMask); end
-        if isfield(subInfo.parameters, 'reverseLR'), set(handles.reverseLR, 'String', subInfo.parameters.reverseLR); end
-        if isfield(subInfo.parameters, 'minDist'), set(handles.minDist, 'String', subInfo.parameters.minDist); end
-        
-        if isfield(subInfo.parameters, 'globalThresh'), set(handles.globalThresh, 'String', subInfo.parameters.globalThresh); end
-        if isfield(subInfo.parameters, 'motionThresh'), set(handles.motionThresh, 'String', subInfo.parameters.motionThresh); end
-        
-        % remove the browse button
-        set(handles.browse_btn, 'Visible', 'off')
-    end
+    
+    % % % %     % now setting the SPGR_text - which shows the current spgr file that we are
+    % % % %     % using for coregistration
+    % % % %     %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
+    % % % %     if isfield(subInfo, 'SPGR')
+    % % % %         str = sprintf('%s', subInfo.SPGR);
+    % % % %     else
+    % % % %         str = '';
+    % % % %     end
+    % % % %     set(handles.SPGR_text, 'String', str);
+    % % % %
+    % % % %     if exist(fullfile(subPath, 'subInfo.mat'), 'file')
+    % % % %         subInfofile = fullfile(subPath, 'subInfo.mat');
+    % % % %         load(subInfofile)
+    % % % %
+    % % % %         % let's update this figure with the subject's information
+    % % % %         if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
+    % % % %         if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
+    % % % %         if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
+    % % % %         if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
+    % % % %         if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
+    % % % %
+    % % % %         % let's update this figure with the subject's default parameters
+    % % % %         if ~isfield(subInfo, 'parameters'),
+    % % % %             subInfo = setDefaultParameters(subInfo);
+    % % % %         end
+    % % % %
+    % % % %         if isfield(subInfo.parameters, 'dti_nDirections'), set(handles.dti_nDirections, 'String', subInfo.parameters.dti_nDirections); end
+    % % % %         if isfield(subInfo.parameters, 'infSupFlip'), set(handles.infSupFlip, 'String', subInfo.parameters.infSupFlip); end
+    % % % %         if isfield(subInfo.parameters, 'upDownFlip'), set(handles.upDownFlip, 'String', subInfo.parameters.upDownFlip); end
+    % % % %         if isfield(subInfo.parameters, 'fileTemplate'), set(handles.fileTemplate, 'String', subInfo.parameters.fileTemplate); end
+    % % % %         if isfield(subInfo.parameters, 'volumesFormat'), set(handles.volumesFormat, 'String', subInfo.parameters.volumesFormat); end
+    % % % %         if isfield(subInfo.parameters, 'maxTranslation'), set(handles.maxTranslation, 'String', subInfo.parameters.maxTranslation); end
+    % % % %         if isfield(subInfo.parameters, 'maxRotation'), set(handles.maxRotation, 'String', subInfo.parameters.maxRotation); end
+    % % % %         if isfield(subInfo.parameters, 'nFirstVolumesToSkip'), set(handles.nFirstVolumesToSkip_fmri, 'String', subInfo.parameters.nFirstVolumesToSkip); end
+    % % % %         if isfield(subInfo.parameters, 'acquisitionOrder'), set(handles.acquisitionOrder, 'String', subInfo.parameters.acquisitionOrder); end
+    % % % %         if isfield(subInfo.parameters, 'smoothSize'), set(handles.smoothSize_fmri, 'String', subInfo.parameters.smoothSize); end
+    % % % %
+    % % % %
+    % % % %         if isfield(subInfo.parameters, 'lag'),
+    % % % %             if length(subInfo.parameters.lag)  == 1
+    % % % %                 set(handles.lag_fmri, 'String', subInfo.parameters.lag);
+    % % % %             else
+    % % % %                 lg = [];
+    % % % %                 for gg = 1:size(subInfo.parameters.lag, 2)
+    % % % %                     lg = [lg  sprintf(' %d ', subInfo.parameters.lag(gg))];
+    % % % %                 end
+    % % % %
+    % % % %                 set(handles.lag_fmri, 'String', lg);
+    % % % %             end
+    % % % %         end
+    % % % %
+    % % % %
+    % % % %         %         if isfield(subInfo.parameters, 'fmriFirstTrigger'),
+    % % % %         %             if length(subInfo.parameters.fmriFirstTrigger)  == 1
+    % % % %         %                 set(handles.fmriFirstTrigger, 'String', subInfo.parameters.fmriFirstTrigger);
+    % % % %         %             else
+    % % % %         %                 ft = [];
+    % % % %         %                 for ff = 1:size(subInfo.parameters.fmriFirstTrigger, 2)
+    % % % %         %                     ft = [ft  sprintf(' %d ', subInfo.parameters.fmriFirstTrigger(ff))];
+    % % % %         %                 end
+    % % % %         %
+    % % % %         %                 set(handles.fmriFirstTrigger, 'String', ft);
+    % % % %         %             end
+    % % % %         %         end
+    % % % %
+    % % % %
+    % % % %         if isfield(subInfo.parameters, 'roiRadius'), set(handles.roiRadius, 'String', subInfo.parameters.roiRadius); end
+    % % % %         if isfield(subInfo.parameters, 'cutoff'), set(handles.cutoff, 'String', sprintf('%.2f  -  %.2f', subInfo.parameters.cutoff)); end
+    % % % %         %         if isfield(subInfo.parameters, 'cutoff'), set(handles.cutoff, 'String', [ '[' num2str(subInfo.parameters.cutoff, '   %.2f') ']' ]); end
+    % % % %
+    % % % %         if isfield(subInfo.parameters, 'wmCenter'), set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter)); end
+    % % % %         if isfield(subInfo.parameters, 'csfCenter'),set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter)); end
+    % % % %
+    % % % %         if strcmp(deblank(get(handles.wmCenter, 'String')), '[')
+    % % % %             set(handles.wmCenter, 'String', '')
+    % % % %         end
+    % % % %
+    % % % %         if strcmp(deblank(get(handles.csfCenter, 'String')), '[')
+    % % % %             set(handles.csfCenter, 'String', '')
+    % % % %         end
+    % % % %
+    % % % %         %         if isfield(subInfo.parameters, 'createOccMask'), set(handles.createOccMask, 'Value', subInfo.parameters.createOccMask); end
+    % % % %         %         if isfield(subInfo.parameters, 'createMidSagMask'), set(handles.createMidSagMask, 'Value', subInfo.parameters.createMidSagMask); end
+    % % % %         %          if isfield(subInfo.parameters, 'leftHanded'), set(handles.leftHanded, 'Value', subInfo.parameters.leftHanded); end
+    % % % %         %         if isfield(subInfo.parameters, 'reverseMask'), set(handles.reverseMask, 'Value', subInfo.parameters.reverseMask); end
+    % % % %         %         if isfield(subInfo.parameters, 'reverseLR'), set(handles.reverseLR, 'Value', subInfo.parameters.reverseLR); end
+    % % % %
+    % % % %         if isfield(subInfo.parameters, 'rightHanded'),
+    % % % %             set(handles.rightHanded, 'Value', subInfo.parameters.rightHanded);
+    % % % %
+    % % % %             if subInfo.parameters.rightHanded
+    % % % %                 set(handles.leftHanded, 'Value', 0);
+    % % % %             else
+    % % % %                 set(handles.leftHanded, 'Value', 1);
+    % % % %             end
+    % % % %         end
+    % % % %
+    % % % %
+    % % % %         if isfield(subInfo.parameters, 'minDist'), set(handles.minDist, 'String', subInfo.parameters.minDist); end
+    % % % %
+    % % % %         if isfield(subInfo.parameters, 'globalThresh'), set(handles.globalThresh, 'String', subInfo.parameters.globalThresh); end
+    % % % %         if isfield(subInfo.parameters, 'motionThresh'), set(handles.motionThresh, 'String', subInfo.parameters.motionThresh); end
+    % % % %
+    % % % %         % remove the browse button
+    % % % %         set(handles.browse_btn, 'Visible', 'off')
+    % % % %     end
+    % remove the browse button
+    set(handles.browse_btn, 'Visible', 'off')
 end
 
 
@@ -335,7 +353,7 @@ if (val < 0) || (val > 1) || isnan(val)
         errordlg(str);
     end
     
-    %setting it back to defauld (lag = 0)
+    %setting it back to defauld (lag_fmri = 0)
     set(handles.acquisitionOrder, 'String', '0')
     varargout{1} = 0;
 end
@@ -356,18 +374,18 @@ end
 
 
 
-function smoothSize_Callback(hObject, eventdata, handles)
-% hObject    handle to smoothSize (see GCBO)
+function smoothSize_fmri_Callback(hObject, eventdata, handles)
+% hObject    handle to smoothSize_fmri (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of smoothSize as text
-%        str2double(get(hObject,'String')) returns contents of smoothSize as a double
+% Hints: get(hObject,'String') returns contents of smoothSize_fmri as text
+%        str2double(get(hObject,'String')) returns contents of smoothSize_fmri as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function smoothSize_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to smoothSize (see GCBO)
+function smoothSize_fmri_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to smoothSize_fmri (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -379,32 +397,32 @@ end
 
 
 
-function varargout = lag_Callback(hObject, eventdata, handles)
-% hObject    handle to lag (see GCBO)
+function varargout = lag_fmri_Callback(hObject, eventdata, handles)
+% hObject    handle to lag_fmri (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of lag as text
-%        str2double(get(hObject,'String')) returns contents of lag as a double
+% Hints: get(hObject,'String') returns contents of lag_fmri as text
+%        str2double(get(hObject,'String')) returns contents of lag_fmri as a double
 % varargout{1} = 1;
-% val = str2double(get(handles.lag,'String'));
+% val = str2double(get(handles.lag_fmri,'String'));
 %
 % if (val < -2) || (val > 1) || isnan(val)
 %
 %     if (get(handles.done_btn, 'Value') ~=1)
-%         str = sprintf('Sorry, incorrect lag parameter was inserted \n(Can be only: -2, -1, 0, or 1)');
+%         str = sprintf('Sorry, incorrect lag_fmri parameter was inserted \n(Can be only: -2, -1, 0, or 1)');
 %         errordlg(str);
 %     end
 %
-%     %setting it back to defauld (lag = 0)
-%     set(handles.lag, 'String', '0')
+%     %setting it back to defauld (lag_fmri = 0)
+%     set(handles.lag_fmri, 'String', '0')
 %     varargout{1} = 0;
 % end
 
 
 % --- Executes during object creation, after setting all properties.
-function lag_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to lag (see GCBO)
+function lag_fmri_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to lag_fmri (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -533,18 +551,18 @@ end
 
 
 
-function nFirstVolumesToSkip_Callback(hObject, eventdata, handles)
-% hObject    handle to nFirstVolumesToSkip (see GCBO)
+function nFirstVolumesToSkip_fmri_Callback(hObject, eventdata, handles)
+% hObject    handle to nFirstVolumesToSkip_fmri (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of nFirstVolumesToSkip as text
-%        str2double(get(hObject,'String')) returns contents of nFirstVolumesToSkip as a double
+% Hints: get(hObject,'String') returns contents of nFirstVolumesToSkip_fmri as text
+%        str2double(get(hObject,'String')) returns contents of nFirstVolumesToSkip_fmri as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function nFirstVolumesToSkip_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to nFirstVolumesToSkip (see GCBO)
+function nFirstVolumesToSkip_fmri_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to nFirstVolumesToSkip_fmri (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -620,23 +638,23 @@ else
                 subInfo.parameters.maxRotation = str2double(get(handles.maxRotation, 'String'));
             end
             
-            if ~isequal(get(handles.nFirstVolumesToSkip, 'String'), num2str(subInfo.parameters.nFirstVolumesToSkip)),
-                subInfo.parameters.nFirstVolumesToSkip = str2double(get(handles.nFirstVolumesToSkip, 'String'));
+            if ~isequal(get(handles.nFirstVolumesToSkip_fmri, 'String'), num2str(subInfo.parameters.nFirstVolumesToSkip)),
+                subInfo.parameters.nFirstVolumesToSkip = str2double(get(handles.nFirstVolumesToSkip_fmri, 'String'));
             end
             
             if ~isequal(get(handles.acquisitionOrder, 'String'), num2str(subInfo.parameters.acquisitionOrder)),
                 subInfo.parameters.acquisitionOrder = str2double(get(handles.acquisitionOrder, 'String'));
             end
             
-            if ~isequal(get(handles.smoothSize, 'String'), num2str(subInfo.parameters.smoothSize)),
-                subInfo.parameters.smoothSize = str2double(get(handles.smoothSize, 'String'));
+            if ~isequal(get(handles.smoothSize_fmri, 'String'), num2str(subInfo.parameters.smoothSize)),
+                subInfo.parameters.smoothSize = str2double(get(handles.smoothSize_fmri, 'String'));
             end
             
             if ~isequal(get(handles.roiRadius, 'String'), num2str(subInfo.parameters.roiRadius)),
                 subInfo.parameters.roiRadius = str2double(get(handles.roiRadius, 'String'));
             end
             
-            l = strsplit(get(handles.lag, 'String'), {'[', ',', ' ', ']'});
+            l = strsplit(get(handles.lag_fmri, 'String'), {'[', ',', ' ', ']'});
             l = l(~cellfun('isempty',deblank(l)));
             if (size(l,2) > 1)
                 lg = [];
@@ -645,31 +663,31 @@ else
                         lg = [lg, str2double(l{gg})];
                     end
                     
-                    if ~isequal(get(handles.lag, 'String'), num2str(subInfo.parameters.lag)),
+                    if ~isequal(get(handles.lag_fmri, 'String'), num2str(subInfo.parameters.lag)),
                         subInfo.parameters.lag = lg;
                     end
                 end
             else
-                subInfo.parameters.lag = str2double(get(handles.lag, 'String'));
+                subInfo.parameters.lag = str2double(get(handles.lag_fmri, 'String'));
             end
             
             
-%             f = strsplit(get(handles.fmriFirstTrigger, 'String'), {'[', ',', ' ', ']'});
-%             f = f(~cellfun('isempty',deblank(f)));
-%             if (size(f,2) > 1)
-%                 ft = [];
-%                 if ~isempty([f{:}])
-%                     for tt = 1:size(f,2)
-%                         ft = [ft, str2double(f{tt})];
-%                     end
-%                     
-%                     if ~isequal(get(handles.fmriFirstTrigger, 'String'), num2str(subInfo.parameters.fmriFirstTrigger)),
-%                         subInfo.parameters.fmriFirstTrigger = ft;
-%                     end
-%                 end
-%             else
-%                 subInfo.parameters.fmriFirstTrigger = str2double(get(handles.fmriFirstTrigger, 'String'));
-%             end
+            %             f = strsplit(get(handles.fmriFirstTrigger, 'String'), {'[', ',', ' ', ']'});
+            %             f = f(~cellfun('isempty',deblank(f)));
+            %             if (size(f,2) > 1)
+            %                 ft = [];
+            %                 if ~isempty([f{:}])
+            %                     for tt = 1:size(f,2)
+            %                         ft = [ft, str2double(f{tt})];
+            %                     end
+            %
+            %                     if ~isequal(get(handles.fmriFirstTrigger, 'String'), num2str(subInfo.parameters.fmriFirstTrigger)),
+            %                         subInfo.parameters.fmriFirstTrigger = ft;
+            %                     end
+            %                 end
+            %             else
+            %                 subInfo.parameters.fmriFirstTrigger = str2double(get(handles.fmriFirstTrigger, 'String'));
+            %             end
             
             
             
@@ -710,22 +728,30 @@ else
             end
             
             
-            if ~isequal(get(handles.createOccMask, 'String'), num2str(subInfo.parameters.createOccMask)),
-                subInfo.parameters.createOccMask = str2double(get(handles.createOccMask, 'String'));
+            %             if ~isequal(get(handles.createOccMask, 'Value'), num2str(subInfo.parameters.createOccMask)),
+            %                 subInfo.parameters.createOccMask = str2double(get(handles.createOccMask, 'Value'));
+            %             end
+            %
+            %             if ~isequal(get(handles.createMidSagMask, 'Value'), num2str(subInfo.parameters.createMidSagMask)),
+            %                 subInfo.parameters.createMidSagMask = str2double(get(handles.createMidSagMask, 'Value'));
+            %             end
+            %
+            if ~isequal(get(handles.rightHanded, 'Value'), num2str(subInfo.parameters.rightHanded)),
+                subInfo.parameters.rightHanded = get(handles.rightHanded, 'Value');
             end
-            
-            if ~isequal(get(handles.handedness, 'String'), num2str(subInfo.parameters.handedness)),
-                subInfo.parameters.handedness = str2double(get(handles.handedness, 'String'));
-            end
-            
-            if ~isequal(get(handles.reverseMask, 'String'), num2str(subInfo.parameters.reverseMask)),
-                subInfo.parameters.reverseMask = str2double(get(handles.reverseMask, 'String'));
-            end
-            
-            if ~isequal(get(handles.reverseLR, 'String'), num2str(subInfo.parameters.reverseLR)),
-                subInfo.parameters.reverseLR = str2double(get(handles.reverseLR, 'String'));
-            end
-            
+            %
+            %              if ~isequal(get(handles.leftHanded, 'Value'), num2str(subInfo.parameters.leftHanded)),
+            %                  subInfo.parameters.leftHanded = str2double(get(handles.leftHanded, 'Value'));
+            %              end
+            %
+            %             if ~isequal(get(handles.reverseOccMask, 'Value'), num2str(subInfo.parameters.reverseOccMask)),
+            %                 subInfo.parameters.reverseOccMask = str2double(get(handles.reverseOccMask, 'Value'));
+            %             end
+            %
+            %             if ~isequal(get(handles.reverseMidSagMask, 'Value'), num2str(subInfo.parameters.reverseMidSagMask)),
+            %                 subInfo.parameters.reverseMidSagMask = str2double(get(handles.reverseMidSagMask, 'Value'));
+            %             end
+            %
             if ~isequal(get(handles.minDist, 'String'), num2str(subInfo.parameters.minDist)),
                 subInfo.parameters.minDist = str2double(get(handles.minDist, 'String'));
             end
@@ -775,7 +801,7 @@ else
             end
             
             % let's save the changed parameters to the subject's subInfo file
-            l = strsplit(get(handles.lag, 'String'), {'[', ',', ' ', ']'});
+            l = strsplit(get(handles.lag_fmri, 'String'), {'[', ',', ' ', ']'});
             l = l(~cellfun('isempty',deblank(l)));
             lg = [];
             if ~isempty([l{:}])
@@ -786,16 +812,16 @@ else
                 lg = [];
             end
             
-%             f = strsplit(get(handles.fmriFirstTrigger, 'String'), {'[', ',', ' ', ']'});
-%             f = f(~cellfun('isempty',deblank(f)));
-%             ft = [];
-%             if ~isempty([f{:}])
-%                 for tt = 1:size(f,2)
-%                     ft = [ft, str2double(f{tt})];
-%                 end
-%             else
-%                 ft = [];
-%             end
+            %             f = strsplit(get(handles.fmriFirstTrigger, 'String'), {'[', ',', ' ', ']'});
+            %             f = f(~cellfun('isempty',deblank(f)));
+            %             ft = [];
+            %             if ~isempty([f{:}])
+            %                 for tt = 1:size(f,2)
+            %                     ft = [ft, str2double(f{tt})];
+            %                 end
+            %             else
+            %                 ft = [];
+            %             end
             
             
             co = strsplit(get(handles.cutoff, 'String'), '-');
@@ -819,7 +845,7 @@ else
             end
             
             %~isequal(ft, subInfo.parameters.fmriFirstTrigger) || ...
-                
+            
             if ~isequal(get(handles.dti_nDirections, 'String'), num2str(subInfo.parameters.dti_nDirections)) || ...
                     ~isequal(get(handles.infSupFlip, 'String'), num2str(subInfo.parameters.infSupFlip)) || ...
                     ~isequal(get(handles.upDownFlip, 'String'), num2str(subInfo.parameters.upDownFlip)) || ...
@@ -827,19 +853,16 @@ else
                     ~isequal(get(handles.volumesFormat, 'String'), subInfo.parameters.volumesFormat) || ...
                     ~isequal(get(handles.maxTranslation, 'String'), num2str(subInfo.parameters.maxTranslation)) || ...
                     ~isequal(get(handles.maxRotation, 'String'), num2str(subInfo.parameters.maxRotation)) || ...
-                    ~isequal(get(handles.nFirstVolumesToSkip, 'String'), num2str(subInfo.parameters.nFirstVolumesToSkip)) || ...
+                    ~isequal(get(handles.nFirstVolumesToSkip_fmri, 'String'), num2str(subInfo.parameters.nFirstVolumesToSkip)) || ...
                     ~isequal(get(handles.acquisitionOrder, 'String'), num2str(subInfo.parameters.acquisitionOrder)) || ...
-                    ~isequal(get(handles.smoothSize, 'String'), num2str(subInfo.parameters.smoothSize)) || ...
+                    ~isequal(get(handles.smoothSize_fmri, 'String'), num2str(subInfo.parameters.smoothSize)) || ...
                     ~isequal(lg, subInfo.parameters.lag) || ...
                     ~isequal(get(handles.roiRadius, 'String'), num2str(subInfo.parameters.roiRadius)) || ...
                     ~isequal(c, subInfo.parameters.cutoff) || ...
                     ~isequal(wmc, subInfo.parameters.wmCenter) || ...
                     ~isequal(csfc, subInfo.parameters.csfCenter) || ...
-                    ~isequal(get(handles.createOccMask, 'String'), num2str(subInfo.parameters.createOccMask)) || ...
-                    ~isequal(get(handles.handedness, 'String'), num2str(subInfo.parameters.handedness)) || ...
-                    ~isequal(get(handles.reverseMask, 'String'), num2str(subInfo.parameters.reverseMask)) || ...
-                    ~isequal(get(handles.reverseLR, 'String'), num2str(subInfo.parameters.reverseLR)) || ...
                     ~isequal(get(handles.minDist, 'String'), num2str(subInfo.parameters.minDist)) || ...
+                    ~isequal(get(handles.rightHanded, 'Value'), subInfo.parameters.rightHanded) || ...
                     ~isequal(get(handles.globalThresh, 'String'), num2str(subInfo.parameters.globalThresh)) || ...
                     ~isequal(get(handles.motionThresh, 'String'), num2str(subInfo.parameters.motionThresh))
                 
@@ -912,30 +935,30 @@ if ~isempty(subPath)
         if isfield(subInfo.parameters, 'volumesFormat'), set(handles.volumesFormat, 'String', subInfo.parameters.volumesFormat); end
         if isfield(subInfo.parameters, 'maxTranslation'), set(handles.maxTranslation, 'String', subInfo.parameters.maxTranslation); end
         if isfield(subInfo.parameters, 'maxRotation'), set(handles.maxRotation, 'String', subInfo.parameters.maxRotation); end
-        if isfield(subInfo.parameters, 'nFirstVolumesToSkip'), set(handles.nFirstVolumesToSkip, 'String', subInfo.parameters.nFirstVolumesToSkip); end
+        if isfield(subInfo.parameters, 'nFirstVolumesToSkip'), set(handles.nFirstVolumesToSkip_fmri, 'String', subInfo.parameters.nFirstVolumesToSkip); end
         if isfield(subInfo.parameters, 'acquisitionOrder'), set(handles.acquisitionOrder, 'String', subInfo.parameters.acquisitionOrder); end
-        if isfield(subInfo.parameters, 'smoothSize'), set(handles.smoothSize, 'String', subInfo.parameters.smoothSize); end
+        if isfield(subInfo.parameters, 'smoothSize'), set(handles.smoothSize_fmri, 'String', subInfo.parameters.smoothSize); end
         
         if isfield(subInfo.parameters, 'lag'),
             if length(subInfo.parameters.lag)  == 1
-                set(handles.lag, 'String', subInfo.parameters.lag);
+                set(handles.lag_fmri, 'String', subInfo.parameters.lag);
             else
-                set(handles.lag, 'String', sprintf('%d  %d  %d  %d  %d  %d  %d', subInfo.parameters.lag));
+                set(handles.lag_fmri, 'String', sprintf('%d  %d  %d  %d  %d  %d  %d', subInfo.parameters.lag));
             end
         end
         
-%         if isfield(subInfo.parameters, 'fmriFirstTrigger'),
-%             if length(subInfo.parameters.fmriFirstTrigger)  == 1
-%                 set(handles.fmriFirstTrigger, 'String', subInfo.parameters.fmriFirstTrigger);
-%             else
-%                 ft = [];
-%                 for ff = 1:size(subInfo.parameters.fmriFirstTrigger, 2)
-%                     ft = [ft  sprintf(' %d ', subInfo.parameters.fmriFirstTrigger(ff))];
-%                 end
-%                 
-%                 set(handles.fmriFirstTrigger, 'String', ft);
-%             end
-%         end
+        %         if isfield(subInfo.parameters, 'fmriFirstTrigger'),
+        %             if length(subInfo.parameters.fmriFirstTrigger)  == 1
+        %                 set(handles.fmriFirstTrigger, 'String', subInfo.parameters.fmriFirstTrigger);
+        %             else
+        %                 ft = [];
+        %                 for ff = 1:size(subInfo.parameters.fmriFirstTrigger, 2)
+        %                     ft = [ft  sprintf(' %d ', subInfo.parameters.fmriFirstTrigger(ff))];
+        %                 end
+        %
+        %                 set(handles.fmriFirstTrigger, 'String', ft);
+        %             end
+        %         end
         
         if isfield(subInfo.parameters, 'roiRadius'), set(handles.roiRadius, 'String', subInfo.parameters.roiRadius); end
         if isfield(subInfo.parameters, 'cutoff'), set(handles.cutoff, 'String', sprintf('%.2f  -  %.2f', subInfo.parameters.cutoff)); end
@@ -951,10 +974,12 @@ if ~isempty(subPath)
         end
         
         
-        if isfield(subInfo.parameters, 'createOccMask'), set(handles.createOccMask, 'String', subInfo.parameters.createOccMask); end
-        if isfield(subInfo.parameters, 'handedness'), set(handles.handedness, 'String', subInfo.parameters.handedness); end
-        if isfield(subInfo.parameters, 'reverseMask'), set(handles.reverseMask, 'String', subInfo.parameters.reverseMask); end
-        if isfield(subInfo.parameters, 'reverseLR'), set(handles.reverseLR, 'String', subInfo.parameters.reverseLR); end
+        %         if isfield(subInfo.parameters, 'createOccMask'), set(handles.createOccMask, 'Value', subInfo.parameters.createOccMask); end
+        %         if isfield(subInfo.parameters, 'createMidSagMask'), set(handles.createMidSagMask, 'Value', subInfo.parameters.createMidSagMask); end
+        if isfield(subInfo.parameters, 'rightHanded'), set(handles.rightHanded, 'Value', subInfo.parameters.rightHanded); end
+        %         if isfield(subInfo.parameters, 'leftHanded'), set(handles.leftHanded, 'Value', subInfo.parameters.leftHanded); end
+        %         if isfield(subInfo.parameters, 'reverseOccMask'), set(handles.reverseOccMask, 'Value', subInfo.parameters.reverseOccMask); end
+        %         if isfield(subInfo.parameters, 'reverseMidSagMask'), set(handles.reverseMidSagMask, 'Value', subInfo.parameters.reverseMidSagMask); end
         if isfield(subInfo.parameters, 'minDist'), set(handles.minDist, 'String', subInfo.parameters.minDist); end
         
         if isfield(subInfo.parameters, 'globalThresh'), set(handles.globalThresh, 'String', subInfo.parameters.globalThresh); end
@@ -1015,7 +1040,7 @@ if (c1 > c2) || (c1 == 0) || (c2 == 0)
     str = sprintf('Sorry, you have inserted wrong range..');
     errordlg(str);
     
-    % setting it back to default (lag = 0)
+    % setting it back to default (lag_fmri = 0)
     set(handles.cutoff, 'String', sprintf('%.2f  -  %.2f', [0.02, 0.08]));
 end
 
@@ -1141,17 +1166,6 @@ function createOccMask_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of createOccMask as text
 %        str2double(get(hObject,'String')) returns contents of createOccMask as a double
 
-val = str2double(get(handles.createOccMask,'String'));
-if (val < 0) || (val > 1) || isnan(val)
-    
-    if (get(handles.done_btn, 'Value') ~=1)
-        str = sprintf('Sorry, This parameter can be either 0 or 1. \n(changing back to default)');
-        errordlg(str);
-    end
-    
-    %setting it back to defauld
-    set(handles.createOccMask, 'String', '1')
-end
 
 
 % --- Executes during object creation, after setting all properties.
@@ -1176,18 +1190,6 @@ function handedness_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of handedness as text
 %        str2double(get(hObject,'String')) returns contents of handedness as a double
 
-val = str2double(get(handles.handedness,'String'));
-if (val < 0) || (val > 1) || isnan(val)
-    
-    if (get(handles.done_btn, 'Value') ~=1)
-        str = sprintf('Sorry, This parameter can be either 0 or 1. \n(changing back to default)');
-        errordlg(str);
-    end
-    
-    %setting it back to defauld
-    set(handles.handedness, 'String', '0')
-end
-
 
 
 % --- Executes during object creation, after setting all properties.
@@ -1211,17 +1213,6 @@ function reverseMask_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of reverseMask as text
 %        str2double(get(hObject,'String')) returns contents of reverseMask as a double
-val = str2double(get(handles.reverseMask,'String'));
-if (val < 0) || (val > 1) || isnan(val)
-    
-    if (get(handles.done_btn, 'Value') ~=1)
-        str = sprintf('Sorry, This parameter can be either 0 or 1. \n(changing back to default)');
-        errordlg(str);
-    end
-    
-    %setting it back to defauld
-    set(handles.reverseMask, 'String', '0')
-end
 
 
 
@@ -1246,17 +1237,6 @@ function reverseLR_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of reverseLR as text
 %        str2double(get(hObject,'String')) returns contents of reverseLR as a double
-val = str2double(get(handles.reverseLR,'String'));
-if (val < 0) || (val > 1) || isnan(val)
-    
-    if (get(handles.done_btn, 'Value') ~=1)
-        str = sprintf('Sorry, This parameter can be either 0 or 1. \n(changing back to default)');
-        errordlg(str);
-    end
-    
-    %setting it back to defauld
-    set(handles.reverseLR, 'String', '0')
-end
 
 
 % --- Executes during object creation, after setting all properties.
@@ -1442,6 +1422,126 @@ function fmriFirstTrigger_Callback(hObject, eventdata, handles)
 % --- Executes during object creation, after setting all properties.
 function fmriFirstTrigger_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to fmriFirstTrigger (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in createMidSagMask.
+function createMidSagMask_Callback(hObject, eventdata, handles)
+% hObject    handle to createMidSagMask (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of createMidSagMask
+
+
+% --- Executes on button press in rightHanded.
+function rightHanded_Callback(hObject, eventdata, handles)
+% hObject    handle to rightHanded (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of rightHanded
+rightHandVal = get(hObject,'Value');
+if rightHandVal
+    set(handles.leftHanded, 'Value', 0);
+end
+
+% --- Executes on button press in leftHanded.
+function leftHanded_Callback(hObject, eventdata, handles)
+% hObject    handle to leftHanded (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of leftHanded
+leftHandVal = get(hObject,'Value');
+if leftHandVal
+    set(handles.rightHanded, 'Value', 0);
+end
+
+% --- Executes on button press in reverseOccMask.
+function reverseOccMask_Callback(hObject, eventdata, handles)
+% hObject    handle to reverseOccMask (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of reverseOccMask
+
+
+% --- Executes on button press in reverseMidSagMask.
+function reverseMidSagMask_Callback(hObject, eventdata, handles)
+% hObject    handle to reverseMidSagMask (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of reverseMidSagMask
+
+
+
+function smoothSize_eeg_Callback(hObject, eventdata, handles)
+% hObject    handle to smoothSize_eeg (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of smoothSize_eeg as text
+%        str2double(get(hObject,'String')) returns contents of smoothSize_eeg as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function smoothSize_eeg_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to smoothSize_eeg (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function lag_eeg_Callback(hObject, eventdata, handles)
+% hObject    handle to lag_eeg (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of lag_eeg as text
+%        str2double(get(hObject,'String')) returns contents of lag_eeg as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function lag_eeg_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to lag_eeg (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function nFirstVolumesToSkip_eeg_Callback(hObject, eventdata, handles)
+% hObject    handle to nFirstVolumesToSkip_eeg (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of nFirstVolumesToSkip_eeg as text
+%        str2double(get(hObject,'String')) returns contents of nFirstVolumesToSkip_eeg as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function nFirstVolumesToSkip_eeg_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to nFirstVolumesToSkip_eeg (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
