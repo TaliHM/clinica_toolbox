@@ -70,47 +70,49 @@ if length(varargin) == 1
     
     subPath = subInfo.path;
     
-    % now setting the SPGR_text - which shows the current spgr file that we are
-    % using for coregistration
-    %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
-    if isfield(subInfo, 'SPGR')
-        str = sprintf('%s', subInfo.SPGR);
-    else
-        str = '';
-    end
-    set(handles.SPGR_text, 'String', str);
+    [subInfo, handles] = updateGUIparameters(subInfo, handles, 'mergeActivations');
     
-    % let's update this figure with the subject's information
-    if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
-    if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
-    if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
-    if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
-    if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
-    
-    % let's update this figure with the subject's default parameters
-    if ~isfield(subInfo, 'parameters'),
-        subInfo = setDefaultParameters(subInfo);
-    end
-    
-    if isfield(subInfo.parameters, 'dti_nDirections'), set(handles.dti_nDirections, 'String', subInfo.parameters.dti_nDirections); end
-    if isfield(subInfo.parameters, 'infSupFlip'), set(handles.infSupFlip, 'String', subInfo.parameters.infSupFlip); end
-    if isfield(subInfo.parameters, 'upDownFlip'), set(handles.upDownFlip, 'String', subInfo.parameters.upDownFlip); end
-    
-    if isfield(subInfo.parameters, 'wmCenter'),
-        if ~isempty(subInfo.parameters.wmCenter)
-            set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter));
-        else
-            set(handles.wmCenter, 'String', '')
-        end
-    end
-    
-    if isfield(subInfo.parameters, 'csfCenter'),
-        if ~isempty(subInfo.parameters.csfCenter)
-            set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter));
-        else
-            set(handles.csfCenter, 'String', '')
-        end
-    end
+% % % %     % now setting the SPGR_text - which shows the current spgr file that we are
+% % % %     % using for coregistration
+% % % %     %anatomyfile = regexp(subInfo.SPGR, '\w*[^.nii]', 'match');
+% % % %     if isfield(subInfo, 'SPGR')
+% % % %         str = sprintf('%s', subInfo.SPGR);
+% % % %     else
+% % % %         str = '';
+% % % %     end
+% % % %     set(handles.SPGR_text, 'String', str);
+% % % %     
+% % % %     % let's update this figure with the subject's information
+% % % %     if isfield(subInfo, 'name'), set(handles.subName, 'String', subInfo.name); end
+% % % %     if isfield(subInfo, 'id'), set(handles.id, 'String', subInfo.id); end
+% % % %     if isfield(subInfo, 'age'), set(handles.age, 'String', subInfo.age); end
+% % % %     if isfield(subInfo, 'gender'), set(handles.gender, 'String', subInfo.gender); end
+% % % %     if isfield(subInfo, 'tumorType'), set(handles.tumorType, 'String', subInfo.tumorType); end
+% % % %     
+% % % %     % let's update this figure with the subject's default parameters
+% % % %     if ~isfield(subInfo, 'parameters'),
+% % % %         subInfo = setDefaultParameters(subInfo);
+% % % %     end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'dti_nDirections'), set(handles.dti_nDirections, 'String', subInfo.parameters.dti_nDirections); end
+% % % %     if isfield(subInfo.parameters, 'infSupFlip'), set(handles.infSupFlip, 'String', subInfo.parameters.infSupFlip); end
+% % % %     if isfield(subInfo.parameters, 'upDownFlip'), set(handles.upDownFlip, 'String', subInfo.parameters.upDownFlip); end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'wmCenter'),
+% % % %         if ~isempty(subInfo.parameters.wmCenter)
+% % % %             set(handles.wmCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.wmCenter));
+% % % %         else
+% % % %             set(handles.wmCenter, 'String', '')
+% % % %         end
+% % % %     end
+% % % %     
+% % % %     if isfield(subInfo.parameters, 'csfCenter'),
+% % % %         if ~isempty(subInfo.parameters.csfCenter)
+% % % %             set(handles.csfCenter, 'String', sprintf('[%d  %d  %d]', subInfo.parameters.csfCenter));
+% % % %         else
+% % % %             set(handles.csfCenter, 'String', '')
+% % % %         end
+% % % %     end
     
     if isfield(subInfo, 'fMRIsession')
         fields = subInfo.fMRIsession;
@@ -156,7 +158,7 @@ if length(varargin) == 1
         
         % check that we have other folders than the default ones (i.e.;
         % DTI_41, func, anat, and LI)
-        dirType = regexpi(lower(dirs), '(dti20|dti_41|li|anat|func)+[^(_| |-)]*', 'match');
+        dirType = regexpi(lower(dirs), '^(?=.*\<(?:dti20|dti_41|li|anat|func|out)\>).*', 'match');
         idx = find(cellfun(@isempty,dirType));
         
         if ~isempty(idx)

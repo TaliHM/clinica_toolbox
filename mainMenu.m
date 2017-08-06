@@ -149,6 +149,22 @@ if ischar(newSubPath)
     cd(subPath);
     [p subName e] = fileparts(subPath);
     set(handles.subName, 'String', subName)
+    
+    if exist(fullfile(subPath, 'subInfo.mat'), 'file')
+        subInfofile = fullfile(subPath, 'subInfo.mat');
+        load(subInfofile)
+        
+        if ~isequal(subInfo.path, subPath)
+            str = sprintf('subInfo.path = %s,\nChosen dir    = %s.\nShould I change it to the current path?', subInfo.path, newSubPath);
+            choice = questdlg(str, ...
+                'Change Path?', ...
+                'Yes','No', 'Yes');
+            if isequal(choice, 'Yes')
+                subInfo.path = subPath;
+                save( fullfile(subPath, 'subInfo.mat'), 'subInfo')
+            end
+        end
+    end
 end
 
 
@@ -170,6 +186,8 @@ else
     varargin{1} = subPath;
     seriesRenaming(varargin);
 end
+
+
 
 
 % --- Executes on button press in viewParameters_btn.
@@ -255,6 +273,8 @@ else
                     processRest(subInfo)
                 else
                     errordlg('No Rest session was found!!');
+                    uiwait;
+                    processRest(subInfo)
                 end
             end
         end
@@ -288,28 +308,49 @@ if isempty(subName)
         
         reportForAccelPath = fullfile(subInfo.path, 'ReportForAccel');
         dcmFiles = dir(fullfile(reportForAccelPath, '*.dcm'));
-        files = {dcmFiles.name}';
         
-        if ~isempty(files)
+        if ~isempty(dcmFiles)
             createPacsReport(subInfo)
         else
-            str = sprintf('No ReportForAccel folder!! \nPlease create the folder and relevant files (#.dcm) and try again');
-            errordlg(str);
+            reportPath = fullfile(subPath, '*Report');
+            
+            if exist(reportPath, 'dir')
+                createPacsReport(subInfo)
+            else
+                
+                str = sprintf('No ReportForAccel folder!! \nPlease create the folder and relevant files (#.dcm) and try again');
+                errordlg(str);
+            end
+            
         end
-        
     end
 else
-    subInfofile = fullfile(subPath, 'subInfo.mat');
-    load(subInfofile)
     
-    reportForAccelPath = fullfile(subInfo.path, 'ReportForAccel');
-    dcmFiles = dir(fullfile(reportForAccelPath, '*.dcm'));
-    files = {dcmFiles.name}';
-    
-    if ~isempty(files)
-        createPacsReport(subInfo)
+    if exist(fullfile(subPath, 'subInfo.mat'), 'file')
+        subInfofile = fullfile(subPath, 'subInfo.mat');
+        load(subInfofile)
+        
+        reportForAccelPath = fullfile(subPath, 'ReportForAccel');
+        dcmFiles = dir(fullfile(reportForAccelPath, '*.dcm'));
+        
+        if ~isempty(dcmFiles)
+            createPacsReport(subInfo)
+        else
+            
+            allFiles = dir(subPath);
+            allFiles = allFiles([allFiles.isdir]);
+            allNames = {allFiles.name};
+            taskDir = strfind(lower(allNames), 'report');
+            
+            ind = find(~cellfun(@isempty,taskDir));
+            if ~isempty(ind)
+                createPacsReport(subInfo)
+            else
+                errordlg('No Report folder!!');
+            end
+        end
     else
-        errordlg('No ReportForAccel folder!!');
+        errordlg('No subInfo.mat file!!');
     end
 end
 

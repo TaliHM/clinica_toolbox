@@ -26,7 +26,6 @@ volumesFormat = subInfo.parameters.volumesFormat; % 'nii' or 'img'
 maxTranslation = subInfo.parameters.maxTranslation;   % max allowed motion correction (mm)
 maxRotation = subInfo.parameters.maxRotation;    % max allowed rotation (degrees)
 acquisitionOrder = subInfo.parameters.acquisitionOrder; % set the series acquisition order : bottom-up (1) or top-down (0)
-nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip;
 %-------------------------------------------------------------------------------
 
 % setting subject's initials
@@ -63,12 +62,11 @@ try
     % let's see if fMRIsession field exist - and if it does we'll go over it
     % and coregister them one by one
     fields = subInfo.fMRIsession;
-    fieldnameToAccess = fieldnames(fields);
+    fieldnameToAccess = sort(fieldnames(fields));
     
     for i = 1:size(pTable, 1)
         
         % find the corresponding field in subInfo
-        
         for k = 1:size(fieldnameToAccess)
             if str2double(pTable{i,2}) == fields.(fieldnameToAccess{k}).seriesNumber
                 break
@@ -130,6 +128,38 @@ try
             % with uppercases and brackets) so we can find it in the structure.
             sName = regexp(lower(fullSeriesName), '\w*[^(\d*rep)]*', 'match');
             fieldname = strjoin(sName,'_');
+            
+            % if its an EEG-fMRI session we are processing it differently - all
+            % sessions at one (and not one by one as we used to in the ordinary fmri
+            % scans
+            isEEG = regexp(lower(fieldname), 'eeg_fmri', 'match');
+            
+            if ~isempty(isEEG)
+                fprintf( logFID, 'IMPROTANT!! This is an EEG_fMEI Analysis (all sessions are processed at once at all stages)\n\n');
+                
+                % first we check if there is relevant field in the relevant
+                % session in subInfo.fMRIsession, or else we take if from
+                % the general parameters
+                if isfield(subInfo.fMRIsession.(fieldname), 'nFirstVolumesToSkip')
+                    nFirstVolumesToSkip = subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip;
+                elseif isfield(subInfo.fMRIsession.parameters, 'nFirstVolumesToSkip_eeg')
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip_eeg;
+                else
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip;
+                end
+            else
+                % first we check if there is relevant field in the relevant
+                % session in subInfo.fMRIsession, or else we take if from
+                % the general parameters
+                if isfield(subInfo.fMRIsession.(fieldname), 'nFirstVolumesToSkip')
+                    nFirstVolumesToSkip = subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip;
+                elseif isfield(subInfo.fMRIsession.parameters, 'nFirstVolumesToSkip_fmri')
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip_fmri;
+                else
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip;
+                end
+            end
+            
             % Taking TR from dicom
             if isfield(subInfo.fMRIsession.(fieldname).dcmInfo_org, 'RepetitionTime')
                 tr = subInfo.fMRIsession.(fieldname).dcmInfo_org.RepetitionTime;
@@ -190,25 +220,30 @@ try
                 disp( str );
                 fprintf( logFID, '%s\n', str );
                 
-                % first let's look for the original files (strating with
-                % 'vol_*.nii)
-                % Skipping the first few fMRI volumes..
-                files = { vol_niftiFiles(nFirstVolumesToSkip+1:end).name }';
-                
-                % making sure that the dir function does not mess with the file
-                % order.
-                str  = sprintf('%s#', files{:});
-                s = [fileTemplate '%d.nii#'];
-                num  = sscanf(str, s);
-                [dummy, index] = sort(num);
-                files = files(index);
-                
-                % set the session folder of the current subject, the TR, number
-                % of slices and TA
-                matlabbatch{1}.spm.temporal.st.scans{1} = cellstr( strcat( [fullSeriesFuncPath '\'] , files, ',1' ) );
                 matlabbatch{1}.spm.temporal.st.tr = seriesTR;
                 matlabbatch{1}.spm.temporal.st.nslices = nSlices;
                 matlabbatch{1}.spm.temporal.st.ta = seriesTR - (seriesTR / nSlices); % TR-(TR/nSlices)
+                
+                if ~isempty(isEEG)
+                    matlabbatch = updateMatlabatch4eegProcess(subInfo, pTable, matlabbatch, 'sliceTiming', logFID);
+                else
+                    % first let's look for the original files (strating with
+                    % 'vol_*.nii)
+                    % Skipping the first few fMRI volumes..
+                    files = { vol_niftiFiles(nFirstVolumesToSkip+1:end).name }';
+                    
+                    % making sure that the dir function does not mess with the file
+                    % order.
+                    str  = sprintf('%s#', files{:});
+                    s = [fileTemplate '%d.nii#'];
+                    num  = sscanf(str, s);
+                    [dummy, index] = sort(num);
+                    files = files(index);
+                    
+                    % set the session folder of the current subject, the TR, number
+                    % of slices and TA
+                    matlabbatch{1}.spm.temporal.st.scans{1} = cellstr( strcat( [fullSeriesFuncPath '\'] , files, ',1' ) );
+                end
                 
                 % set the series acquisition order : bottom-up or reversed
                 if acquisitionOrder,
@@ -221,6 +256,7 @@ try
                 
                 % set the reference slice - slice index of the reference slice
                 matlabbatch{1}.spm.temporal.st.refslice = 1;
+                
                 
                 % make slice timing correction
                 spm_jobman( 'run', matlabbatch );
@@ -266,21 +302,25 @@ try
                 % loading the matlabbatch template file
                 load( fullfile(  templatePath, 'Realign_Estimate&Reslice_template.mat' ) );
                 
-                % searching for the files that underwent slice timing (these
-                % are the files with the 'a' prefix, e.g.: 'avol_*.nii))
-                d = dir( fullfile( fullSeriesFuncPath, [ sliceTimingPrefix '*.' volumesFormat ] ) );
-                files = { d.name }';
-                
-                % making sure that the dir function does not mess with the file
-                % order
-                str  = sprintf('%s#', files{:});
-                s = [sliceTimingPrefix '%d.nii#'];
-                num  = sscanf(str, s);
-                [dummy, index] = sort(num);
-                files = files(index);
-                
-                % save these files to the template
-                matlabbatch{1}.spm.spatial.realign.estwrite.data{1} = cellstr( strcat( [ fullSeriesFuncPath '\' ], files, ',1' ) );
+                if ~isempty(isEEG)
+                    matlabbatch = updateMatlabatch4eegProcess(subInfo, pTable, matlabbatch, 'realign', logFID);
+                else
+                    % searching for the files that underwent slice timing (these
+                    % are the files with the 'a' prefix, e.g.: 'avol_*.nii))
+                    d = dir( fullfile( fullSeriesFuncPath, [ sliceTimingPrefix '*.' volumesFormat ] ) );
+                    files = { d.name }';
+                    
+                    % making sure that the dir function does not mess with the file
+                    % order
+                    str  = sprintf('%s#', files{:});
+                    s = [sliceTimingPrefix '%d.nii#'];
+                    num  = sscanf(str, s);
+                    [dummy, index] = sort(num);
+                    files = files(index);
+                    
+                    % save these files to the template
+                    matlabbatch{1}.spm.spatial.realign.estwrite.data{1} = cellstr( strcat( [ fullSeriesFuncPath '\' ], files, ',1' ) );
+                end
                 
                 % This will run the realign job which will write realigned images
                 % into the directory where the functional images are.
@@ -420,34 +460,56 @@ try
                     error( errorStr );
                 end
                 
-                % loading the matlabbatch template file
-                load( fullfile(  templatePath, 'Coregister_Estimate&Reslice_template.mat' ) );
                 
-                % set the image that is assumed to remain stationary (SPGR)
-                matlabbatch{1}.spm.spatial.coreg.estwrite.ref = ...
-                    cellstr( strcat( [ anatomyPath '\'  anatomyfile ], ',1' ) );
-                
-                % now we enter the mean file that will be jiggled about to best
-                % match the reference image (SPGR).
-                matlabbatch{1}.spm.spatial.coreg.estwrite.source = ...
-                    cellstr( strcat( [ fullSeriesFuncPath '\' meanfile.name ], ',1' ) );
-                
-                % searching for the files that underwent realignment (these
-                % are the files with the 'ra' prefix, e.g.: 'ravol_*.nii)
-                d = dir( fullfile( fullSeriesFuncPath, [ realignPrefix, '*.' volumesFormat ] ) );
-                files = { d.name }';
-                
-                % making sure that the dir function does not mess with the file
-                % order
-                str  = sprintf('%s#', files{:});
-                s = [realignPrefix '%d.nii#'];
-                num  = sscanf(str, s);
-                [dummy, index] = sort(num);
-                files = files(index);
-                
-                % now we enter the images that need to remain in alignment with the source image (the mean file)
-                % these are the ravol_*.nii files of the patient)
-                matlabbatch{1}.spm.spatial.coreg.estwrite.other = cellstr( strcat( [ fullSeriesFuncPath '\' ], files, ',1' ) );
+                if ~isempty(isEEG)
+                    % update log file
+                    str = sprintf('Coregistration is done only with estimate (reslice will be done later, if required)');
+                    disp( str );
+                    fprintf( logFID, '%s\n', str );
+                    
+                    % loading the matlabbatch template file
+                    load( fullfile(  templatePath, 'Coregister_Estimate_template.mat' ) );
+                    
+                    % set the image that is assumed to remain stationary (SPGR)
+                    matlabbatch{1}.spm.spatial.coreg.estimate.ref = ...
+                        cellstr( strcat( [ anatomyPath '\'  anatomyfile ], ',1' ) );
+                    
+                    % now we enter the mean file that will be jiggled about to best
+                    % match the reference image (SPGR).
+                    matlabbatch{1}.spm.spatial.coreg.estimate.source = ...
+                        cellstr( strcat( [ fullSeriesFuncPath '\' meanfile.name ], ',1' ) );
+                    
+                    matlabbatch = updateMatlabatch4eegProcess(subInfo, pTable, matlabbatch, 'coreg', logFID);
+                    
+                else
+                    load( fullfile(  templatePath, 'Coregister_Estimate&Reslice_template.mat' ) );
+                    
+                    % set the image that is assumed to remain stationary (SPGR)
+                    matlabbatch{1}.spm.spatial.coreg.estwrite.ref = ...
+                        cellstr( strcat( [ anatomyPath '\'  anatomyfile ], ',1' ) );
+                    
+                    % now we enter the mean file that will be jiggled about to best
+                    % match the reference image (SPGR).
+                    matlabbatch{1}.spm.spatial.coreg.estwrite.source = ...
+                        cellstr( strcat( [ fullSeriesFuncPath '\' meanfile.name ], ',1' ) );
+                    
+                    % searching for the files that underwent realignment (these
+                    % are the files with the 'ra' prefix, e.g.: 'ravol_*.nii)
+                    d = dir( fullfile( fullSeriesFuncPath, [ realignPrefix, '*.' volumesFormat ] ) );
+                    files = { d.name }';
+                    
+                    % making sure that the dir function does not mess with the file
+                    % order
+                    str  = sprintf('%s#', files{:});
+                    s = [realignPrefix '%d.nii#'];
+                    num  = sscanf(str, s);
+                    [dummy, index] = sort(num);
+                    files = files(index);
+                    
+                    % now we enter the images that need to remain in alignment with the source image (the mean file)
+                    % these are the ravol_*.nii files of the patient)
+                    matlabbatch{1}.spm.spatial.coreg.estwrite.other = cellstr( strcat( [ fullSeriesFuncPath '\' ], files, ',1' ) );
+                end
                 
                 % SPM will then implement a coregistration between the structural and functional data that
                 % maximises the mutual information. SPM will have changed the header
@@ -458,10 +520,23 @@ try
                 % mricronPath =  fullfile( subPath, 'viewer', 'mricron');
                 meanFilePath = fullfile(fullSeriesFuncPath, meanfile.name );
                 
-                cmdFile = fullfile( subPath, 'viewer', [ 'checkRegistration_' fullSeriesName '.bat' ] );
+                if ~isempty(isEEG)
+                    s = {};
+                    name = strtrim(pTable(:,2))';
+                    name = cellfun(@str2num, name);
+                    for n = 1:size(name, 2)
+                        s{n} = num2str(name(n), '%0.2d');
+                    end
+                    
+                    str = ['Se' strjoin(s, '_')];
+                    cmdFile = fullfile( subPath, 'viewer', [ 'checkRegistration_EEG_fMRI_' str '.bat' ] );
+                else
+                    cmdFile = fullfile( subPath, 'viewer', [ 'checkRegistration_' fullSeriesName '.bat' ] );
+                end
+                
                 batchFID = fopen( cmdFile , 'wt' );
                 fprintf( batchFID,...
-                    'start /MAX mricron .\\%s -o %s -l 300 -h 6000 -c -40',...
+                    'start /MAX mricron .\\%s -o %s -l 300 -h 9999 -c -40',...
                     anatomyfile, meanFilePath);
                 fclose( batchFID );
             end
@@ -485,7 +560,7 @@ try
             sTime = [ num2str( startTime(4), '%0.2d' ) ':' num2str( startTime(5), '%0.2d' ) ':' num2str( round (startTime(6) ), '%0.2d' ) ];
             endTime = [ num2str( endTime(4), '%0.2d' ) ':' num2str( endTime(5), '%0.2d' ) ':' num2str( round (endTime(6) ), '%0.2d' ) ];
             totalTime = [ num2str( floor( totalTime/3600 ), '%0.2d' ) ':' num2str( floor( mod(totalTime,3600)/60 ), '%0.2d' ) ':' num2str( round ( mod(totalTime,60) ), '%0.2d' ) ];
-            disp( '------------------------- Quick Summary ---------------------' );
+            fprintf( '------------------------- %s - Quick Summary ---------------------\n', subInfo.name );
             disp( [ 'Start time - ' sTime ] );
             disp( [ 'End   time - ' endTime ] );
             fprintf( logFID, '\n%s\n', [ 'End   time - ' endTime ] );
@@ -493,6 +568,12 @@ try
             fprintf( logFID, '%s\n', [ 'Total time - ' totalTime ] );
             status_flag = 1;
             fprintf('\n');
+        end
+        
+        % if it's an eeg-fmri session - we analyse all sessions at once, so
+        % one we've done with that - we can stop the process
+        if ~isempty(isEEG)
+            break
         end
     end
     
@@ -502,7 +583,7 @@ catch me
     sTime = [ num2str( startTime(4), '%0.2d' ) ':' num2str( startTime(5), '%0.2d' ) ':' num2str( round (startTime(6) ), '%0.2d' ) ];
     endTime = [ num2str( endTime(4), '%0.2d' ) ':' num2str( endTime(5), '%0.2d' ) ':' num2str( round (endTime(6) ), '%0.2d' ) ];
     totalTime = [ num2str( floor( totalTime/3600 ), '%0.2d' ) ':' num2str( floor( mod(totalTime,3600)/60 ), '%0.2d' ) ':' num2str( round ( mod(totalTime,60) ), '%0.2d' ) ];
-    disp( '------------------------- Quick Summary ---------------------' );
+    fprintf( '------------------------- %s - Quick Summary ---------------------\n', subInfo.name );
     disp( [ 'Start time - ' sTime ] );
     disp( [ 'Error time - ' endTime ] );
     fprintf( logFID, '\n%s\n', [ 'Error time - ' endTime ] );

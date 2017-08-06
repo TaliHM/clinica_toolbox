@@ -26,7 +26,7 @@ nCol = cell2mat(protocolFile_raw(2:end,2));
 for row = 1:length(row2update)
     curRow = row2update(row);
     curCellVal = str2num(protocolTable{curRow, 5});
-    if (~isempty(curCellVal)) && (curCellVal < length(nCol))
+    if (~isempty(curCellVal)) && (curCellVal <= length(nCol))
         newSeriesIndex = find(nCol == curCellVal)+1;
         pName = num2str(protocolFile_raw{newSeriesIndex, 6});
         

@@ -1,4 +1,4 @@
-function superimposeClinic(subInfo, files_table)
+function superimposeClinic(subInfo, files_table, createColorDcm)
 
 % DTI and fMRI superimposing script for Clinic
 % superimpose - an array that contains the followings:
@@ -20,13 +20,13 @@ dtiFilePrefix = subInfo.parameters.dtiFilePrefix;
 dti_nDirections = subInfo.parameters.dti_nDirections;
 upDownFlip = subInfo.parameters.upDownFlip;
 
-createColorMatrix = 0;
-colorScheme = {'MediumBlue';'Gold';'Pink';'Lime';'Orange'; 'DarkCyan'; 'FireBrick'; 'SeaGreen';'ForestGreen';'DarkBlue'; 'Teal';  'DarkOrange'; 'HotPink';
+createColorMatrix = createColorDcm;
+colorScheme = {'Red';'Yellow';'MediumBlue';'Lime';'Gold';'Orange'; 'DarkCyan'; 'FireBrick'; 'SeaGreen';'ForestGreen';'DarkBlue'; 'Teal';  'DarkOrange'; 'HotPink';
     'MediumPurple'; 'Chocolate'; 'DarkMagenta'; 'RoyalBlue'; 'LightCoral';
-    'PaleVioletRed';   'Indigo'; 'Black'; 'Amethyst';
+    'PaleVioletRed';   'Indigo';'Pink'; 'Black'; 'Amethyst';
     'CornFlowerBlue'; 'Crimson'; 'Gray'; 'LightSlateGray';
     'SteelBlue';  'DodgerBlue'; 'LightSalmon'; 'RosyBrown';
-    'BurlyWood'; 'DarkSalmon'; 'Red';'CadetBlue';};
+    'BurlyWood'; 'DarkSalmon'; 'CadetBlue';};
 
 % creating subject name and initials
 subInit = createSubInitials(subInfo);
@@ -38,10 +38,6 @@ funcPath = fullfile( analysisPath, 'func' );
 dtiPath = fullfile( subPath, 'Analysis', [ 'DTI_' num2str( dti_nDirections ) ] );
 fibersPath = fullfile( dtiPath, 'Fibers' );
 viewerFilesPath = fullfile( subPath, 'viewer', 'files' );
-isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
-if ~isempty(isEEG)
-    eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
-end
 %-------------------------------------------------------------------------------
 
 step = 1;
@@ -78,7 +74,7 @@ for curFileList_index = 1:numel(ind)
     
     if writeOutputDicoms
         dicomOutputName = ['out' newSeriesName];
-        dicomOutputPath = fullfile( analysisPath, dicomOutputName );
+        dicomOutputPath = fullfile( subPath, 'for_PACS', dicomOutputName );
     end
     
     % change file name to reflect the files superimposed!
@@ -306,7 +302,12 @@ for curFileList_index = 1:numel(ind)
                 
             elseif ~isempty(datfileIndex)  % if it's a file of DTI studio
                 % load DTI NifTI header
-                [ hdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile( dtiPath, [ dtiFilePrefix '_01.nii' ] ) );
+                if exist(fullfile( dtiPath, [ dtiFilePrefix '_001.nii' ] ), 'file')
+                    [ hdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile( dtiPath, [ dtiFilePrefix '_001.nii' ] ) );
+                else
+                    [ hdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile( dtiPath, [ dtiFilePrefix '_01.nii' ] ) );
+                end
+                
                 xDim = hdr.dime.dim(2);
                 yDim = hdr.dime.dim(3);
                 
@@ -407,8 +408,13 @@ for curFileList_index = 1:numel(ind)
         % mean file for co-registration
         % creating a file named tempB0 from the first DTI NIFTI file
         meanfile = 'tempB0.nii';
-        copyfile( fullfile( dtiPath, [ dtiFilePrefix '_01.nii' ] ), ...
-            fullfile( dtiPath, meanfile ) );
+        if exist(fullfile( dtiPath, [ dtiFilePrefix '_001.nii' ] ), 'file')
+            copyfile( fullfile( dtiPath, [ dtiFilePrefix '_001.nii' ] ), ...
+                fullfile( dtiPath, meanfile ) );
+        else
+            copyfile( fullfile( dtiPath, [ dtiFilePrefix '_01.nii' ] ), ...
+                fullfile( dtiPath, meanfile ) );
+        end
         
         % now we enter the mean file that will be jiggled about to best
         % match the reference image (SPGR).
@@ -578,6 +584,8 @@ for curFileList_index = 1:numel(ind)
                             fprintf('Found: %s\n', fmriFiles);
                             copyfile( fmriFiles, viewerFilesPath );
                             break
+                        else
+                            foundStr = 0;
                         end
                         
                         
@@ -593,7 +601,7 @@ for curFileList_index = 1:numel(ind)
                     
                     % check that we have other folders than the default ones (i.e.;
                     % DTI_41, func, anat, and LI)
-                    dirType = regexpi(lower(dirs), '(dti_41|li|anat|func|out*)+[^(_| |-)]*', 'match');
+                    dirType = regexpi(lower(dirs), '^(?=.*\<(?:dti20|dti_41|li|anat|func|out)\>).*', 'match');
                     idx = find(cellfun(@isempty,dirType));
                     
                     if ~isempty(idx)
@@ -633,9 +641,13 @@ for curFileList_index = 1:numel(ind)
                                                 % coregistered in previous preprocessing)
                                                 % copying to the viewer folder a copy of the original fmri file (copy file)
                                                 fmriFiles = fullfile( eegLagsPath, curSess, curLag, 'Results', [ filename  '.*'] );
-                                                fprintf('Found: %s\n', fmriFiles);
-                                                copyfile( fmriFiles, viewerFilesPath );
-                                                break
+                                                if ~isempty(dir(fmriFiles))
+                                                    fprintf('Found: %s\n', fmriFiles);
+                                                    copyfile( fmriFiles, viewerFilesPath );
+                                                    break
+                                                else
+                                                    foundStr = 0;
+                                                end
                                             end
                                         end
                                     end
@@ -650,18 +662,24 @@ for curFileList_index = 1:numel(ind)
                                 curDir = fullfile(analysisPath, dirs{idx(n)});
                                 % now lets set the fmri files..
                                 % find if the file exists
-                                if exist(fullfile(curDir, [filename '.hdr']), 'file') || ...
-                                        exist(fullfile(curDir, [filename '.nii']), 'file')
-                                    foundStr = 1;
-                                    
-                                    % copying the img and hdr of the activation file into the
-                                    % superimpose folder in the viewer (they were already
-                                    % coregistered in previous preprocessing)
-                                    % copying to the viewer folder a copy of the original fmri file (copy file)
-                                    fmriFiles = fullfile( curDir, [ filename  '.*'] );
-                                    fprintf('Found: %s\n', fmriFiles);
-                                    copyfile( fmriFiles, viewerFilesPath );
-                                    break
+                                if exist(curDir, 'file')
+                                    if isequal(dirs{idx(n)}, [filename '.hdr']) ||...
+                                            isequal(dirs{idx(n)}, [filename '.nii'])
+                                        
+                                        foundStr = 1;
+                                        % copying the img and hdr of the activation file into the
+                                        % superimpose folder in the viewer (they were already
+                                        % coregistered in previous preprocessing)
+                                        % copying to the viewer folder a copy of the original fmri file (copy file)
+                                        fmriFiles = fullfile( analysisPath, [ filename  '.*'] );
+                                        if ~isempty(dir(fmriFiles))
+                                            fprintf('Found: %s\n', fmriFiles);
+                                            copyfile( fmriFiles, viewerFilesPath );
+                                            break
+                                        else
+                                            foundStr = 0;
+                                        end
+                                    end
                                 end
                             end
                         end
@@ -675,19 +693,70 @@ for curFileList_index = 1:numel(ind)
                     %coreg_fileName_forMricron = fullfile( viewerFilesPath, [ filename '.hdr'] ); % changed by Tomer 3/5/17 because of bug in file path.
                     coreg_fileName_forMricron = fullfile(  '.', 'files', [ filename '.hdr'] );
                     
-                    
-                    if ~exist( fullfile(viewerFilesPath, [filename '.hdr' ]), 'file')
-                        coreg_fileName_forMricron = fullfile( '.', 'files', [ filename '.nii'] );
-                        [ fMRIhdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile(viewerFilesPath, [filename '.nii' ]) );
-                    else
-                        [ fMRIhdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile(viewerFilesPath, [filename '.hdr' ]) );
+                    isEEG = regexp(lower(filename), 'lag', 'match');
+                    if writeOutputDicoms,
+                        % before we upload the files, we need to check if we
+                        % need to reslice them
+                        % coregister EEG-fMRI session
+                        % we coregisterthe patient's data to the his \ her SPGR.
+                        
+                        if ~isempty(isEEG)
+                            fprintf('\n\nInitializing SPM12...\n');
+                            spm_jobman('initcfg');
+                            spm('defaults','FMRI');
+                            
+                            % updating waitbar
+                            step = step + 3;
+                            str = sprintf('Applying superimpose processing (%d/%d)\nApplying fMRI Coregistration..', curFileList_index, numel(ind));
+                            waitbar(step/100, h, str,...
+                                'name', 'Processing', 'windowstyle', 'modal', 'DefaulttextInterpreter', 'none');
+                            
+                            % clear matlabbatch variable
+                            clear matlabbatch;
+                            
+                            % loading the matlabbatch template file
+                            load( fullfile(  templatePath, 'Coregister_Reslice_template.mat' ) );
+                            
+                            % set the image that is assumed to remain stationary (SPGR)
+                            matlabbatch{1}.spm.spatial.coreg.write.ref = ...
+                                cellstr( strcat( [ anatomyPath '\'  anatomyfile ], ',1' ) );
+                            
+                            % now we enter the mean file that will be jiggled about to best
+                            % match the reference image (SPGR).
+                            if exist( fullfile(viewerFilesPath, [filename '.img' ]), 'file')
+                                matlabbatch{1}.spm.spatial.coreg.write.source = ...
+                                    cellstr( strcat( [ viewerFilesPath '\' filename '.img'], ',1' ) );
+                            elseif exist( fullfile(viewerFilesPath, [filename '.nii' ]), 'file')
+                                matlabbatch{1}.spm.spatial.coreg.write.source = ...
+                                    cellstr( strcat( [ viewerFilesPath '\' filename '.nii'], ',1' ) );
+                            end
+                            
+                            spm_jobman( 'run', matlabbatch );
+                            
+                            filename = ['r' filename];
+                        end
                     end
                     
+                    if exist( fullfile(viewerFilesPath, [filename '.hdr' ]), 'file')
+                        [ fMRIhdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile(viewerFilesPath, [filename '.hdr' ]) );
+                    else
+                        coreg_fileName_forMricron = fullfile( '.', 'files', [ filename '.nii'] );
+                        [ fMRIhdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile(viewerFilesPath, [filename '.nii' ]) );
+                    end
+                    
+                    
+                    %                     if exist( fullfile(viewerFilesPath, [filename '.hdr' ]), 'file')
+                    %                         [ fMRIhdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile(viewerFilesPath, [filename '.hdr' ]) );
+                    %                     else
+                    %                         coreg_fileName_forMricron = fullfile( '.', 'files', [ filename '.nii'] );
+                    %                         [ fMRIhdr, filetype, fileprefix, machine ] = load_nii_hdr( fullfile(viewerFilesPath, [filename '.nii' ]) );
+                    %                     end
+                    %
                     threshold = 0;
                     
                     % loading the fmri file header and changing several parameters
                     [ coregImg, coregHdr ] = load_nii_img( fMRIhdr, filetype, fileprefix, machine );
-                    
+                                        
                     %outFunc_nii = load_untouch_nii( [ fmriFiles(1:end-1) 'hdr' ] );
                     outFunc_nii.hdr = coregHdr;
                     outFunc_nii.img = coregImg;
@@ -695,18 +764,29 @@ for curFileList_index = 1:numel(ind)
                     outFunc_nii.hdr.dime.bitpix = 8;
                     outFunc_nii.hdr.dime.scl_slope = 0;
                     
+                    % turn NaN into zero:
+                    outFunc_nii.img (isnan(outFunc_nii.img )) = 0;
+                    
                     % we go over the fmri image matrix and convert it into a matrix of logicals
                     if sum( outFunc_nii.img(:) ) > 0,  % positive map
                         outFunc_nii.img = outFunc_nii.img > 0;
                         colorBounds = ' -l 0.5 ';
+                        if ~isempty(isEEG)
+                            threshold = 0.2;
+                        end
                     else % negative map
                         outFunc_nii.img = outFunc_nii.img < 0;
                         colorBounds = ' -h -0.5 ';
+                        
+                        if ~isempty(isEEG)
+                            threshold = 0.5;
+                        end
                         coregImg = coregImg * (-1);
                     end
                     
                     % we look in the matrix for those cells indices that are greater than the threshold
                     maskFibers = find( coregImg(:) > threshold );
+                    outFunc_nii.img = coregImg;
                     save_nii( outFunc_nii, fullfile( viewerFilesPath, [ filename '_bin.nii' ] ) );
                     clear outFunc_nii;
                 end
@@ -734,6 +814,9 @@ for curFileList_index = 1:numel(ind)
         end
         
         % updating the mricron batch file
+        % changing the file name, if it contains an ampersand (&) we need to
+        % add ^ so that the file could be reachable
+        coreg_fileName_forMricron = strrep(coreg_fileName_forMricron, '&', '^&');
         fprintf( mricronFID, '-o %s %s -c -%d ', coreg_fileName_forMricron, colorBounds, viewerColor );
     end
     
@@ -766,6 +849,30 @@ for curFileList_index = 1:numel(ind)
     % view_nii( SPGRwithFibers_nii);
     % view_nii( SPGRFibersForShow_nii );
     
+% % % %     % runPython multislice from matlab - for hadas
+% % % %     % creating a bat file with the following parameters:
+% % % %     multisliceFilename = fullfile( subPath, 'viewer', ['createMultislice_'  newSeriesName '.bat'] );
+% % % %     multisliceFID = fopen( multisliceFilename, 'wt' );
+% % % %         
+% % % %     pyFuncName = 'M:\clinica\Hadas\Python_scripts\createMultisliceImagesMatlab.py';
+% % % %     isAllBin = regexp(superimpose_list(:,1), 'bin', 'match');
+% % % %     if (isempty(find(cellfun(@isempty,isAllBin), 1)));
+% % % %         files4Py = [];
+% % % %         files4PyColor = [];
+% % % %         if (size(isAllBin, 1) == 1)
+% % % %             files4Py = [ fullfile( viewerFilesPath, [ superimpose_list{:,1} '.nii'] )  ' None'];
+% % % %             files4PyColor = [superimpose_list{:,3} ' None'];
+% % % %         else
+% % % %             for g = 1:size(superimpose_list(:,1), 1)
+% % % %                 files4Py = [files4Py ' ' fullfile( viewerFilesPath, [ superimpose_list{g,1} '.nii'] )]
+% % % %                 files4PyColor = [files4PyColor ' ' superimpose_list{g,3}];
+% % % %             end
+% % % %         end
+% % % %     end
+% % % %     
+% % % %     str = [pyFuncName ' ' subPath ' ' fullfile( anatomyPath, anatomyfile ) ' ' files4Py ' ' files4PyColor];
+% % % %     fprintf( multisliceFID, '%s', str);
+% % % %     fclose(multisliceFID);
     
     % --------------------------- output coregstration result on DICOM files --------------------------
     

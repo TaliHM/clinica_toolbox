@@ -1,4 +1,4 @@
-function xjview8Clinic_spm12(varargin)
+function xjview8Clinic_spm12_Tomer(varargin)
 % xjview, version 8        11.02.10 Lonia
 %
 % usage 1: xjview (no argument)
@@ -3781,23 +3781,19 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 resultsPath = fullfile(pwd, 'Results');
-contrastName = char(strrep(handles.subDetails(3), 'Contrast: ', ''));
-contrastName = strrep(contrastName, ' ', '_');
-
-seriesName = char(strrep(handles.subDetails(2), 'Series Name: ', ''));
-seriesName = strrep(seriesName , ' ', '_');
-
-isEEG = regexp(lower(seriesName), 'eeg_fmri', 'match');
-if ~isempty(isEEG)
-    resultsPath = fullfile(pwd, handles.subDetails{5}, 'Results');
-    f = handles.subDetails{5};
-else
-    seriesName = strrep(handles.subDetails(2), 'Series Name: ', '');
-    
-    %     f = regexp(fname, '[^Se\d_*]\w*[^(\d*rep*)]', 'match');
-    f = regexp(char(seriesName), '[^Se\d_*]\w+[^\d+[^rep])]', 'match');
-    f = strrep(f, '(', '');
-end
+% contrastName = char(strrep(handles.subDetails(3), 'Contrast: ', ''));
+% contrastName = strrep(contrastName, ' ', '_');
+% isEEG = regexp(lower(handles.rootFolder), 'eeg-fmri', 'match');
+% if ~isempty(isEEG)
+%     resultsPath = fullfile(pwd, handles.subDetails{5}, 'Results');
+%     f = handles.subDetails{5};
+% else
+%     seriesName = strrep(handles.subDetails(2), 'Series Name: ', '');
+%     
+%     %     f = regexp(fname, '[^Se\d_*]\w*[^(\d*rep*)]', 'match');
+%     f = regexp(char(seriesName), '[^Se\d_*]\w+[^\d+[^rep])]', 'match');
+%     f = strrep(f, '(', '');
+% end
 
 cSize = handles.clusterSizeThreshold;
 
@@ -3815,9 +3811,9 @@ end
 
 % and removing the 0. at the beginning
 pval = regexp(p, '[^.]+\d', 'match');
-file = fullfile(resultsPath, [char(f) '_c' num2str(cSize) '_p' char(pval) '_' contrastName]);
+% file = fullfile(resultsPath, [char(f) '_c' num2str(cSize) '_p' char(pval) '_' contrastName]);
 
-[filename, pathname] = uiputfile('*.img', 'Save image file as', file);
+[filename, pathname] = uiputfile('*.img', 'Save image file as', 'testTomer');
 % else
 %     task = fullfile(resultsPath, 'task');
 %     [filename, pathname] = uiputfile('*.img', 'Save image file as', task);
@@ -5864,8 +5860,8 @@ xjview8Clinic_spm12_timeCoursePlot(hObject); % modified by THM 08.03.2017
 %%% xhairs in section view?
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function CallBack_xClusterCheck(hObject, eventdata)
-% handles = guidata( hObject );
-% CallBack_TimeCoursePush( handles.xClusterCheck );
+handles = guidata( hObject );
+CallBack_TimeCoursePush( handles.xClusterCheck );
 
 % check = get( hObject, 'Value' );
 % if check

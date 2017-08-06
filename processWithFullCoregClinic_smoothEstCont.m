@@ -1,4 +1,4 @@
-function [subInfo, status_flag] = processWithFullCoregClinic_smoothEstCont(subInfo, pTable, smooth, est, contrast)
+function [subInfo, status_flag] = processWithFullCoregClinic_smoothEstCont(subInfo, pTable, smooth, est, contrast, create4D)
 
 % Batch script for preprocessing the fMRI tests of the clinic
 % (used to be the function process_withFullCoregistration.mat)
@@ -22,12 +22,6 @@ subPath = subInfo.path;
 templatePath = subInfo.parameters.templatePath;
 fileTemplate = [subInfo.parameters.fileTemplate '_']; % e.g. 'vol_'
 volumesFormat = subInfo.parameters.volumesFormat; % 'nii' or 'img'
-smoothSize = subInfo.parameters.smoothSize;        % smooth amount (mm), default is 4 mm
-% lag - The delay between the action and the brain response in TRs, default is 2*TR.
-% 0-->2*TR     1-->3*TR     -1-->1*TR      -2-->0*TR
-lag = subInfo.parameters.lag;
-
-nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip;
 %-------------------------------------------------------------------------------
 
 % setting up the log folder
@@ -47,6 +41,7 @@ fprintf( logFID, '--------------------------------------------------------------
 fprintf( logFID, [ 'processed with: processWithFullCoregClinic_smoothEstCont.m (version ' FileVersion ')\n' ] );
 fprintf( logFID, '\n%s\n', dateStr );
 fprintf( logFID, '--------------\n' );
+
 fprintf( logFID, 'Subject''s folder: %s\n\n', subPath );
 
 try
@@ -64,11 +59,11 @@ try
     %     % let's see if fMRIsession field exist - and if it does we'll go over it
     %     % and coregister them one by one
     fields = subInfo.fMRIsession;
-    fieldnameToAccess = fieldnames(fields);
+    fieldnameToAccess = sort(fieldnames(fields));
     
     for i = 1:size(pTable, 1)
-        % find the corresponding field in subInfo
         
+        % find the corresponding field in subInfo
         for k = 1:size(fieldnameToAccess)
             if str2double(pTable{i,2}) == fields.(fieldnameToAccess{k}).seriesNumber
                 break
@@ -121,6 +116,74 @@ try
             sName = regexp(lower(fullSeriesName), '\w*[^(\d*rep)]*', 'match');
             fieldname = strjoin(sName,'_');
             
+            % if its an EEG-fMRI session we are processing it differently - all
+            % sessions at one (and not one by one as we used to in the ordinary fmri
+            % scans
+            isEEG = regexp(lower(fieldname), 'eeg_fmri', 'match');
+            
+            if ~isempty(isEEG)
+                fprintf( logFID, 'IMPROTANT!! This is an EEG_fMEI Analysis (all sessions are processed at once at all stages)\n\n');
+                
+                % first we check if there is relevant field in the relevant
+                % session in subInfo.fMRIsession, or else we take if from
+                % the general parameters
+                if isfield(subInfo.fMRIsession.(fieldname), 'nFirstVolumesToSkip')
+                    nFirstVolumesToSkip = subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip;
+                elseif isfield(subInfo.fMRIsession.parameters, 'nFirstVolumesToSkip_eeg')
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip_eeg;
+                else
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip;
+                end
+                
+                % smooth size
+                if isfield(subInfo.fMRIsession.(fieldname), 'smoothSize')
+                    smoothSize = subInfo.fMRIsession.(fieldname).smoothSize;
+                elseif isfield(subInfo.fMRIsession.parameters, 'smoothSize_eeg')
+                    smoothSize = subInfo.parameters.smoothSize_eeg;
+                else
+                    smoothSize = subInfo.parameters.smoothSize;
+                end
+                
+                % lag
+                if isfield(subInfo.fMRIsession.(fieldname), 'lag')
+                    lag = subInfo.fMRIsession.(fieldname).lag;
+                elseif isfield(subInfo.fMRIsession.parameters, 'lag_eeg')
+                    lag = subInfo.parameters.lag_eeg;
+                else
+                    lag = subInfo.parameters.lag;
+                end
+                
+            else
+                % first we check if there is relevant field in the relevant
+                % session in subInfo.fMRIsession, or else we take if from
+                % the general parameters
+                if isfield(subInfo.fMRIsession.(fieldname), 'nFirstVolumesToSkip')
+                    nFirstVolumesToSkip = subInfo.fMRIsession.(fieldname).nFirstVolumesToSkip;
+                elseif isfield(subInfo.fMRIsession.parameters, 'nFirstVolumesToSkip_fmri')
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip_fmri;
+                else
+                    nFirstVolumesToSkip = subInfo.parameters.nFirstVolumesToSkip;
+                end
+                
+                % smooth size
+                if isfield(subInfo.fMRIsession.(fieldname), 'smoothSize')
+                    smoothSize = subInfo.fMRIsession.(fieldname).smoothSize;
+                elseif isfield(subInfo.fMRIsession.parameters, 'smoothSize_fmri')
+                    smoothSize = subInfo.parameters.smoothSize_fmri;
+                else
+                    smoothSize = subInfo.parameters.smoothSize;
+                end
+                
+                % lag
+                if isfield(subInfo.fMRIsession.(fieldname), 'lag')
+                    lag = subInfo.fMRIsession.(fieldname).lag;
+                elseif isfield(subInfo.fMRIsession.parameters, 'lag_fmri')
+                    lag = subInfo.parameters.lag_fmri;
+                else
+                    lag = subInfo.parameters.lag;
+                end
+            end
+            
             % Taking TR from dicom
             if isfield(subInfo.fMRIsession.(fieldname).dcmInfo_org, 'RepetitionTime')
                 tr = subInfo.fMRIsession.(fieldname).dcmInfo_org.RepetitionTime;
@@ -167,22 +230,26 @@ try
                 % loading the matlabbatch template file
                 load( fullfile(  templatePath, 'Smooth_template.mat' ) );
                 
-                % searching for the files that underwent coregistration (these
-                % are the files with the 'rra' e.g.: 'rravol_*.nii)
-                d = dir( fullfile( fullSeriesFuncPath, [ coregPrefix '*.' volumesFormat ] ) );
-                files = { d.name }';
-                
-                % making sure that the dir function does not mess with the file
-                % order
-                str  = sprintf('%s#', files{:});
-                s = [coregPrefix '%d.nii#'];
-                num  = sscanf(str, s);
-                [dummy, index] = sort(num);
-                files = files(index);
-                
-                % now we enter the images that need to be smoothed
-                matlabbatch{1}.spm.spatial.smooth.data = cellstr( strcat( [ fullSeriesFuncPath '\' ], files, ',1' ) );
-                %matlabbatch{1}.spm.spatial{jj}.smooth.data = cellstr( strcat( [ funcPath '\' fullSeriesName '\' ], files, ',1' ) );
+                if ~isempty(isEEG)
+                    matlabbatch = updateMatlabatch4eegProcess(subInfo, pTable, matlabbatch, 'smooth', logFID);
+                else
+                    % searching for the files that underwent coregistration (these
+                    % are the files with the 'rra' e.g.: 'rravol_*.nii)
+                    d = dir( fullfile( fullSeriesFuncPath, [ coregPrefix '*.' volumesFormat ] ) );
+                    files = { d.name }';
+                    
+                    % making sure that the dir function does not mess with the file
+                    % order
+                    str  = sprintf('%s#', files{:});
+                    s = [coregPrefix '%d.nii#'];
+                    num  = sscanf(str, s);
+                    [dummy, index] = sort(num);
+                    files = files(index);
+                    
+                    % now we enter the images that need to be smoothed
+                    matlabbatch{1}.spm.spatial.smooth.data = cellstr( strcat( [ fullSeriesFuncPath '\' ], files, ',1' ) );
+                    %matlabbatch{1}.spm.spatial{jj}.smooth.data = cellstr( strcat( [ funcPath '\' fullSeriesName '\' ], files, ',1' ) );
+                end
                 
                 % if we specified the full-width at half maximum (FWHM) of the
                 % Gaussiam smoothing kernel in mm
@@ -209,52 +276,9 @@ try
                 if( ESTIMATE )
                     disp( 'Specify 1st Level ' );
                     
-                    % updating waitbar
-                    step = step + 10;
-                    curProcess = 'Generating 4D file';
-                    str = sprintf('%s  (%d/%d sessions)\n%s..',...
-                        [subInit '_' fullSeriesName], i, size(pTable, 1), curProcess);
-                    waitbar(step/100, h, str,...
-                        'name', 'Processing', 'windowstyle', 'modal', 'DefaulttextInterpreter', 'none');
-                    
-                    % Generate 4D nii file for later time-course inspection
-                    fprintf('Generating 4D file for series %s.\n', fullSeriesName );
-                    
-                    % update log file with start time of estimating
-                    t = clock;
-                    sTime = [ num2str( t(4), '%0.2d' ) ':' num2str( t(5), '%0.2d' ) ':' num2str( round (t(6) ), '%0.2d' ) ];
-                    str = sprintf('%s -  Generating 4D file..', sTime );
-                    disp( str );
-                    fprintf( logFID, '%s\n', str );
-                    
-                    % Reading the relevant volumes for estimation
-                    % searching for the files that underwent smoothing (these
-                    % are the files with the 'srra' prefix, e.g.: 'sravol_*.nii)
-                    d = dir( fullfile( fullSeriesFuncPath, [ SmoothPrefix '*.' volumesFormat ] ) );
-                    files = { d.name }';
-                    
-                    % making sure that the dir function does not mess with the file
-                    % order
-                    str  = sprintf('%s#', files{:});
-                    s = [SmoothPrefix '%d.nii#'];
-                    num  = sscanf(str, s);
-                    [dummy, index] = sort(num);
-                    files = files(index);
-                    
-                    % we copy the hdr of our 3D data and inserting the 4th
-                    % dimention ( - time)
-                    [ hdr3D, filetype, fileprefix, machine ] = load_nii_hdr( fullfile( fullSeriesFuncPath, d(1).name ) );
-                    nii4D.hdr = hdr3D;
-                    nii4D.hdr.dime.dim(1) = 4; % change to 4D
-                    nii4D.hdr.dime.dim(5) = length( files );
-                    nii4D.img = zeros( hdr3D.dime.dim(2), hdr3D.dime.dim(3), hdr3D.dime.dim(4), length( files ) );
-                    
-                    for nn = 1:length( files ),
-                        nii4D.img(:,:,:,nn) = load_nii_img( hdr3D, filetype, fullfile( fullSeriesFuncPath, d(nn).name(1:end-4) ), machine );
+                    if create4D
+                        create4DperSlice(subInfo, pTable(i,:), logFID, h)
                     end
-                    
-                    save_nii( nii4D, fullfile( fullSeriesFuncPath, '4D_srra.nii' ) );
-                    clear nii4D;
                     
                     %%%%%%%%%%%%%%%%%%%%%%%
                     % MODEL SPECIFICATION %
@@ -280,6 +304,19 @@ try
                     % loading the matlabbatch template file and 2 mat files needed for
                     % moder specification
                     load( fullfile(  templatePath, 'SpecifyModel_template.mat' ) );
+                    
+                    % searching for the files that underwent coregistration (these
+                    % are the files with the 'rra' e.g.: 'rravol_*.nii)
+                    d = dir( fullfile( fullSeriesFuncPath, [ SmoothPrefix '*.' volumesFormat ] ) );
+                    files = { d.name }';
+                    
+                    % making sure that the dir function does not mess with the file
+                    % order
+                    str  = sprintf('%s#', files{:});
+                    s = [SmoothPrefix '%d.nii#'];
+                    num  = sscanf(str, s);
+                    [dummy, index] = sort(num);
+                    files = files(index);
                     
                     % let's make sure we have the right number of volumes to process
                     nRep = regexp(subInfo.fMRIsession.(fieldname).seriesDescription, '(\d)+[^rep]', 'match');
@@ -433,7 +470,7 @@ try
                     fprintf( logFID, '%s\n', str );
                     
                     % organizing spmT files into something more readable..
-                    fprintf('Renaming spmT files for: %s\n', subInfo.name);
+                    fprintf('\nRenaming spmT files for: %s\n', subInfo.name);
                     copySPMfiles(subInfo, fullSeriesName, 'nii');
                     copySPMfiles(subInfo, fullSeriesName, 'img');
                     copySPMfiles(subInfo, fullSeriesName, 'hdr');
@@ -455,7 +492,7 @@ try
             sTime = [ num2str( startTime(4), '%0.2d' ) ':' num2str( startTime(5), '%0.2d' ) ':' num2str( round (startTime(6) ), '%0.2d' ) ];
             endTime = [ num2str( endTime(4), '%0.2d' ) ':' num2str( endTime(5), '%0.2d' ) ':' num2str( round (endTime(6) ), '%0.2d' ) ];
             totalTime = [ num2str( floor( totalTime/3600 ), '%0.2d' ) ':' num2str( floor( mod(totalTime,3600)/60 ), '%0.2d' ) ':' num2str( round ( mod(totalTime,60) ), '%0.2d' ) ];
-            disp( '------------------------- Quick Summary ---------------------' );
+            fprintf( '------------------------- %s - Quick Summary ---------------------\n', subInfo.name );
             disp( [ 'Start time - ' sTime ] );
             disp( [ 'End   time - ' endTime ] );
             fprintf( logFID, '\n%s\n', [ 'End   time - ' endTime ] );
@@ -464,6 +501,13 @@ try
             status_flag = 1;
             fprintf('\n\n');
         end
+        
+        % if it's an eeg-fmri session - we analyse all sessions at once, so
+        % one we've done with that - we can stop the process
+        if ~isempty(isEEG)
+            break
+        end
+        
     end
     
 catch me
@@ -472,7 +516,7 @@ catch me
     sTime = [ num2str( startTime(4), '%0.2d' ) ':' num2str( startTime(5), '%0.2d' ) ':' num2str( round (startTime(6) ), '%0.2d' ) ];
     endTime = [ num2str( endTime(4), '%0.2d' ) ':' num2str( endTime(5), '%0.2d' ) ':' num2str( round (endTime(6) ), '%0.2d' ) ];
     totalTime = [ num2str( floor( totalTime/3600 ), '%0.2d' ) ':' num2str( floor( mod(totalTime,3600)/60 ), '%0.2d' ) ':' num2str( round ( mod(totalTime,60) ), '%0.2d' ) ];
-    disp( '------------------------- Quick Summary ---------------------' );
+    fprintf( '------------------------- %s - Quick Summary ---------------------\n', subInfo.name );
     disp( [ 'Start time - ' sTime ] );
     disp( [ 'Error time - ' endTime ] );
     fprintf( logFID, '\n%s\n', [ 'Error time - ' endTime ] );

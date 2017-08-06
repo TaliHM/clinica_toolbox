@@ -93,7 +93,18 @@ if length(varargin) == 1
         
         fld = {};
         
-        isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+        for i = 1:size(fieldnameToAccess,1)
+            fieldname = fieldnameToAccess{i};
+            fld{end+1,1} = subInfo.fMRIsession.(fieldname).seriesDescription;
+        end
+        
+        f = strfind(lower(fld), 'eeg_fmri');
+        ind = find(cellfun(@isempty,f));
+        fld = fld(ind);
+        
+        set(handles.lagMenu, 'Visible', 'off');
+        
+        isEEG = ~isempty(find(~cellfun(@isempty,f), 1));
         if ~isempty(isEEG)
             % we are not using the data in the subInfo, but rather go to
             % the Analysis\EEG_lags folder.
@@ -101,16 +112,11 @@ if length(varargin) == 1
             eegfmriDirs = {d.name};
             eegfmriDirs = eegfmriDirs(3:end)';
             
-            fld = eegfmriDirs;
-            fieldnameToAccess = fld;
+            for e = 1:size(eegfmriDirs,1)
+                fld{end+1,1} = eegfmriDirs{e};
+            end
             
             set(handles.lagMenu, 'Visible', 'on');
-        else
-            for i = 1:size(fieldnameToAccess,1)
-                fieldname = fieldnameToAccess{i};
-                fld{end+1,1} = subInfo.fMRIsession.(fieldname).seriesDescription;
-            end
-            set(handles.lagMenu, 'Visible', 'off');
         end
         
         % now let's search in the analysis folder itself for things to show analysisPath
@@ -137,13 +143,45 @@ if length(varargin) == 1
         %         if isfield(subInfo, 'fMRIsession')
         %             fields = subInfo.fMRIsession;
         %             fieldnameToAccess = fieldnames(fields);
+        fields = subInfo.fMRIsession;
+        fieldnameToAccess = fieldnames(fields);
         nTask = get(handles.taskMenu, 'Value');
-        fieldname = fieldnameToAccess{nTask};
+        taskList = get(handles.taskMenu, 'string');
+        taskName = taskList{nTask};
+        % find the corresponding field in subInfo
+        for k = 1:size(fieldnameToAccess)
+            if isequal( taskName, fields.(fieldnameToAccess{k}).seriesDescription)
+                break
+            end
+        end
+        
+        if isequal( taskName, fields.(fieldnameToAccess{k}).seriesDescription)
+            seriesNumber= fields.(fieldnameToAccess{k}).seriesNumber;
+            seriesDescription = fields.(fieldnameToAccess{k}).seriesDescription;
+            fullSeriesName = ['Se' num2str( seriesNumber, '%0.2d' ) '_' seriesDescription ];
+            
+            fieldname = strrep(lower(fullSeriesName), '(', '_');
+            fieldname = strrep(fieldname, ')', '');
+            set(handles.lagMenu, 'Visible', 'off');
+        end
+        
         
         % going over each field extracting existing contrasts
         % excluding rest sessions (this session only underwent
         % smoothing)
-        if ~isempty(isEEG)
+        if isempty(strfind(fieldname, 'rest'))
+            if isfield(subInfo.fMRIsession, fieldname)
+                if isfield(subInfo.fMRIsession.(fieldname), 'prtFile')
+                    fullContrastList = {'Positive_Effect'; 'Negative_Effect'};
+                    if isfield(subInfo.fMRIsession.(fieldname), 'contrasts')
+                        contrasts = subInfo.fMRIsession.(fieldname).contrasts;
+                        fullContrastList(end+1 : end+size(contrasts,1) , 1) = contrasts(:,1);
+                    end
+                else
+                    fullContrastList = {'Sorry, no contrasts in here!'};
+                end
+            end
+        elseif ~isempty(isEEG)
             fullContrastList = {};
             
             % going to the sub directory and extracting the
@@ -174,18 +212,6 @@ if length(varargin) == 1
             
             fullContrastList = contrasts';
             
-        elseif isempty(strfind(fieldname, 'rest'))
-            if isfield(subInfo.fMRIsession, fieldname)
-                if isfield(subInfo.fMRIsession.(fieldname), 'prtFile')
-                    fullContrastList = {'Positive Effect'; 'Negative Effect'};
-                    if isfield(subInfo.fMRIsession.(fieldname), 'contrasts')
-                        contrasts = subInfo.fMRIsession.(fieldname).contrasts;
-                        fullContrastList(end+1 : end+size(contrasts,1) , 1) = contrasts(:,1);
-                    end
-                else
-                    fullContrastList = {'Sorry, no contrasts in here!'};
-                end
-            end
         else % if its a rest session
             % setting up the path to the results folder
             seriesNumber = fields.(fieldname).seriesNumber;
@@ -269,6 +295,7 @@ global subPath
 % [p subName e] = fileparts(subPath);
 % set(handles.subName, 'String', subName)
 
+
 fullContrastList = {'Sorry, no contrasts in here!'};
 if exist(fullfile(subPath, 'subInfo.mat'), 'file')
     subInfofile = fullfile(subPath, 'subInfo.mat');
@@ -279,6 +306,8 @@ if exist(fullfile(subPath, 'subInfo.mat'), 'file')
         fields = subInfo.fMRIsession;
         fieldnameToAccess = fieldnames(fields);
         nTask = get(handles.taskMenu, 'Value');
+        taskList = get(handles.taskMenu, 'string');
+        taskName = taskList{nTask};
         
         if nTask > size(fieldnameToAccess, 1)
             fieldname = '';
@@ -297,27 +326,54 @@ if exist(fullfile(subPath, 'subInfo.mat'), 'file')
                     end
             end
         else
-            fieldname = fieldnameToAccess{nTask};
+            
+            % find the corresponding field in subInfo
+            for k = 1:size(fieldnameToAccess)
+                if isequal( taskName, fields.(fieldnameToAccess{k}).seriesDescription)
+                    break
+                end
+            end
+            
+            if isequal( taskName, fields.(fieldnameToAccess{k}).seriesDescription)
+                seriesNumber= fields.(fieldnameToAccess{k}).seriesNumber;
+                seriesDescription = fields.(fieldnameToAccess{k}).seriesDescription;
+                fullSeriesName = ['Se' num2str( seriesNumber, '%0.2d' ) '_' seriesDescription ];
+                
+                fieldname = strrep(lower(fullSeriesName), '(', '_');
+                fieldname = strrep(fieldname, ')', '');
+                set(handles.lagMenu, 'Visible', 'off');
+            end
         end
         
-        isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+        isEEG = regexp(lower(taskName), 'eeg_fmri', 'match');
         
         if ~isempty(isEEG)
+            set(handles.lagMenu, 'Visible', 'on');
+            fieldname = taskName;
+            
             analysisPath = fullfile(subPath, 'Analysis');
             eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
             
-            taskNames = get(handles.taskMenu, 'String');
-            nTask = get(handles.taskMenu, 'Value');
-            fieldname = taskNames{nTask};
+            % % % %             taskNames = get(handles.taskMenu, 'String');
+            % % % %             nTask = get(handles.taskMenu, 'Value');
+            % % % %
             lagNames =  get(handles.lagMenu, 'String');
-            nLag = get(handles.lagMenu, 'Value');
-            curLag = lagNames{nLag};
             
+            if strcmp(lagNames, 'Select Lag')
+                lagDirs = dir(fullfile(eegLagsPath, fieldname));
+                lagDirs = {lagDirs.name};
+                lagDirs = lagDirs(3:end)';
+                set(handles.lagMenu, 'String', lagDirs);
+                lagNames = lagDirs;
+            end
             fullContrastList = {};
             
             % going to the sub directory and extracting the
             % contrasts (spmT files)
             contrasts = [];
+            
+            nLag = get(handles.lagMenu, 'Value');
+            curLag = lagNames{nLag};
             
             spmFiles = dir(fullfile(eegLagsPath, fieldname, curLag, 'spmT_files'));
             spmFiles = {spmFiles.name};
@@ -333,11 +389,10 @@ if exist(fullfile(subPath, 'subInfo.mat'), 'file')
             
             fullContrastList = contrasts';
             
-            
         elseif isempty(strfind(fieldname, 'rest'))
             if isfield(subInfo.fMRIsession, fieldname)
                 if isfield(subInfo.fMRIsession.(fieldname), 'prtFile')
-                    fullContrastList = {'Positive Effect'; 'Negative Effect'};
+                    fullContrastList = {'Positive_Effect'; 'Negative_Effect'};
                     if isfield(subInfo.fMRIsession.(fieldname), 'contrasts')
                         contrasts = subInfo.fMRIsession.(fieldname).contrasts;
                         fullContrastList(end+1 : end+size(contrasts,1) , 1) = contrasts(:,1);
@@ -375,6 +430,27 @@ if exist(fullfile(subPath, 'subInfo.mat'), 'file')
             %             set(handles.xjView_btn, 'Value', 0)
         end
         
+        if isempty(isEEG)
+            % setting up the path to the results folder
+            seriesNumber = fields.(fieldname).seriesNumber;
+            seriesDescription = fields.(fieldname).seriesDescription;
+            fullSeriesName = ['Se' num2str( seriesNumber, '%0.2d' ) '_' seriesDescription ];
+            
+            analysisPath = fullfile( subPath, 'Analysis' );
+            funcPath = fullfile( analysisPath, 'func' );
+            spmTpath = fullfile(funcPath, fullSeriesName, 'spmT_files');
+            
+            if ~exist(spmTpath, 'dir')
+                spmTpath = fullfile(funcPath, fullSeriesName, 'Results');
+            end
+            
+            allFiles = dir(fullfile(spmTpath, '*.nii'));
+            fileNames = {allFiles.name}';
+            
+            if ~isempty(fileNames)
+                fullContrastList = regexprep(fileNames, 'spmT_\d+_', '');
+            end
+        end
         set(handles.contrastList, 'String', fullContrastList);
         set(handles.contrastList, 'Value', 1);
     else
@@ -411,14 +487,34 @@ if exist(fullfile(subPath, 'subInfo.mat'), 'file')
     load(subInfofile)
 end
 
+analysisPath = fullfile( subPath, 'Analysis' );
+
 % setting up the path to the results folder
 fields = subInfo.fMRIsession;
 fieldnameToAccess = fieldnames(fields);
 nTask = get(handles.taskMenu, 'Value');
+taskList = get(handles.taskMenu, 'string');
+taskName = taskList{nTask};
 
-analysisPath = fullfile( subPath, 'Analysis' );
+% find the corresponding field in subInfo
+for k = 1:size(fieldnameToAccess)
+    if isequal( taskName, fields.(fieldnameToAccess{k}).seriesDescription)
+        break
+    end
+end
 
-isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+if isequal( taskName, fields.(fieldnameToAccess{k}).seriesDescription)
+    seriesNumber= fields.(fieldnameToAccess{k}).seriesNumber;
+    seriesDescription = fields.(fieldnameToAccess{k}).seriesDescription;
+    fullSeriesName = ['Se' num2str( seriesNumber, '%0.2d' ) '_' seriesDescription ];
+    
+    fieldname = strrep(lower(fullSeriesName), '(', '_');
+    fieldname = strrep(fieldname, ')', '');
+else
+    fieldname = taskName;
+end
+
+isEEG = regexp(lower(fieldname), 'eeg_fmri', 'match');
 if ~isempty(isEEG)
     
     eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
@@ -427,6 +523,15 @@ if ~isempty(isEEG)
     nTask = get(handles.taskMenu, 'Value');
     fieldname = taskNames{nTask};
     lagNames =  get(handles.lagMenu, 'String');
+    
+    if strcmp(lagNames, 'Select Lag')
+        lagDirs = dir(fullfile(eegLagsPath, fieldname));
+        lagDirs = {lagDirs.name};
+        lagDirs = lagDirs(3:end)';
+        set(handles.lagMenu, 'String', lagDirs);
+        lagNames = lagDirs;
+    end
+    
     nLag = get(handles.lagMenu, 'Value');
     curLag = lagNames{nLag};
     
@@ -445,11 +550,6 @@ else
                 fieldname = 'objLoc_across_3sessions';
                 spmTpath = fullfile(analysisPath, fullSeriesName, 'spmT_files');
         end
-    else
-        fieldname = fieldnameToAccess{nTask};
-        seriesNumber = fields.(fieldname).seriesNumber;
-        seriesDescription = fields.(fieldname).seriesDescription;
-        fullSeriesName = ['Se' num2str( seriesNumber, '%0.2d' ) '_' seriesDescription ];
     end
     
     funcPath = fullfile( analysisPath, 'func' );
@@ -457,6 +557,10 @@ else
     
     if ~exist(spmTpath, 'dir')
         spmTpath = fullfile(funcPath, fullSeriesName, 'Results');
+    end
+    
+    if ~exist(spmTpath, 'dir')
+        error('Oh-uh.. no spmT folder in the current path: \n%s \nWas the processWithFullCoreg fully finished?\n', fullfile(funcPath, fullSeriesName));
     end
     
 end
@@ -481,8 +585,16 @@ if ~isempty(isEEG)
         idx = find(~cellfun(@isempty,contInd));
         
         if size(idx, 2) > 1
-            contInd = strfind(files(idx), [curContrast '.nii']);
-            idx = find(~cellfun(@isempty,contInd));
+            for index = 1:size(idx,2)
+                curI = idx(index);
+                contInd = strfind(files(curI), [curContrast '.nii']);
+                idx = find(~cellfun(@isempty,contInd));
+                
+                if ~isempty(idx)
+                    idx = curI;
+                    break;
+                end
+            end
         end
         
         spmTfile = fullfile(spmTpath, files{idx});
@@ -495,7 +607,43 @@ if ~isempty(isEEG)
         
     end
 else
-    spmTfile = fullfile(spmTpath, ['spmT_' num2str( nContrast, '%0.4d' ) '_' curContrast '.nii']);
+    
+    % go to the spmTfiles folder and search for the file.
+    % find the index of a file \ folder
+    allFiles = dir(spmTpath);
+    allNames = {allFiles.name};
+    contInd = strfind(allNames, curContrast);
+    
+    ind = find(~cellfun(@isempty,contInd));
+    if ~isempty(ind)
+        if (size(ind, 2) == 1)
+            spmTfile = fullfile(spmTpath, allNames{ind});
+        else
+            
+            names = allNames(ind)';
+            
+            for p = 1:size(names, 1)
+                n = regexp(names{p},'[^spmT_\d*]\w*[^.nii]', 'match');
+                
+                contInd = strfind(n, curContrast);
+                
+                if ~isempty(contInd)
+                    spmTfile = fullfile(spmTpath, names{p});
+                    break
+                end
+            end
+        end
+    end
+    
+    
+    % maybe its without the _?
+    if ~exist(spmTfile, 'file')
+        curContrast = strrep(curContrast, '_', ' ');
+        contInd = strfind(allNames, curContrast);
+        
+        ind = find(~cellfun(@isempty,contInd));
+        spmTfile = fullfile(spmTpath, allNames{ind});
+    end
     
     if ~exist(spmTfile, 'file')
         spmTfile = fullfile(spmTpath, [curContrast '.nii']);
@@ -517,7 +665,7 @@ else
     detailsStr{1} = [subInfo.name];
     detailsStr{end+1} =  ['Series Name: ' fullSeriesName];
     detailsStr{end+1} = ['Contrast: ' curContrast ];
-    detailsStr{end+1} =  ['spmT file: spmT_' num2str( nContrast, '%0.4d' ) '_' curContrast '.nii'];
+    detailsStr{end+1} =  ['spmT file: ' allNames{ind}];
 end
 
 % uplodaing the relevant anatomy file..
@@ -621,39 +769,39 @@ function lagMenu_Callback(hObject, eventdata, handles)
 
 global subPath
 
-isEEG = regexp(lower(subPath), 'eeg-fmri', 'match');
+analysisPath = fullfile(subPath, 'Analysis');
+eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
 
-if ~isempty(isEEG)
-    analysisPath = fullfile(subPath, 'Analysis');
-    eegLagsPath = fullfile(analysisPath, 'EEG_Lags');
-    
-    taskNames = get(handles.taskMenu, 'String');
-    nTask = get(handles.taskMenu, 'Value');
-    fieldname = taskNames{nTask};
-    lagNames =  get(handles.lagMenu, 'String');
-    nLag = get(handles.lagMenu, 'Value');
-    curLag = lagNames{nLag};
-    
-    fullContrastList = {};
-    
-    % going to the sub directory and extracting the
-    % contrasts (spmT files)
-    contrasts = [];
-    
-    spmFiles = dir(fullfile(eegLagsPath, fieldname, curLag, 'spmT_files'));
-    spmFiles = {spmFiles.name};
-    spmFiles = spmFiles(3:end);
-    
-    for sfile = 1:size(spmFiles, 2)
-        curSpmFile = spmFiles{sfile};
-        nSpm = regexp(spmFiles{sfile},'spmT_\d*', 'match');
-        sf = strrep(curSpmFile, [char(nSpm) '_'], '');
-        sf = strrep(sf, '.nii', '');
-        contrasts{end+1} = sf;
-    end
-    
-    fullContrastList = contrasts';
+taskNames = get(handles.taskMenu, 'String');
+nTask = get(handles.taskMenu, 'Value');
+fieldname = taskNames{nTask};
+lagNames =  get(handles.lagMenu, 'String');
+nLag = get(handles.lagMenu, 'Value');
+curLag = lagNames{nLag};
+
+fullContrastList = {};
+
+% going to the sub directory and extracting the
+% contrasts (spmT files)
+contrasts = [];
+
+spmFiles = dir(fullfile(eegLagsPath, fieldname, curLag, 'spmT_files'));
+spmFiles = {spmFiles.name};
+spmFiles = spmFiles(3:end);
+
+for sfile = 1:size(spmFiles, 2)
+    curSpmFile = spmFiles{sfile};
+    nSpm = regexp(spmFiles{sfile},'spmT_\d*', 'match');
+    sf = strrep(curSpmFile, [char(nSpm) '_'], '');
+    sf = strrep(sf, '.nii', '');
+    contrasts{end+1} = sf;
 end
+
+fullContrastList = contrasts';
+
+set(handles.contrastList, 'String', fullContrastList);
+set(handles.contrastList, 'Value', 1);
+
 
 
 % --- Executes during object creation, after setting all properties.
